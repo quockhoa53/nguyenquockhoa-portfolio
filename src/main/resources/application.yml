@@ -23,7 +23,8 @@ server:
     session:
       cookie:
         http-only: true
-        same-site: lax
+        secure: ${COOKIE_SECURE:true}
+        same-site: ${COOKIE_SAME_SITE:none}
 app:
   cors:
     allowed-origin: ${FRONTEND_URL:http://localhost:5173}
