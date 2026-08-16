@@ -12,10 +12,10 @@ ON knowledge_articles (category_id);
 
 -- Engagement Indexes (Likes & Comments)
 CREATE INDEX IF NOT EXISTS idx_knowledge_likes_article_id 
-ON knowledge_likes (article_id);
+ON knowledge_article_likes (article_id);
 
 CREATE INDEX IF NOT EXISTS idx_knowledge_comments_article_status 
-ON knowledge_comments (article_id, status);
+ON knowledge_article_comments (article_id, status);
 
 CREATE INDEX IF NOT EXISTS idx_project_likes_project_id 
 ON project_likes (project_id);
