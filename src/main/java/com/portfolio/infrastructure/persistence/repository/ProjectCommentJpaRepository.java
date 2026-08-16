@@ -9,5 +9,7 @@ public interface ProjectCommentJpaRepository extends JpaRepository<ProjectCommen
     List<ProjectCommentEntity> findByProjectIdAndStatusOrderByCreatedAtAsc(
             long projectId, KnowledgeCommentEntity.Status status);
 
+    long countByProjectIdAndStatus(long projectId, KnowledgeCommentEntity.Status status);
+
     long countByStatus(KnowledgeCommentEntity.Status status);
 }

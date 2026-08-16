@@ -8,5 +8,7 @@ public interface KnowledgeCommentJpaRepository extends JpaRepository<KnowledgeCo
     List<KnowledgeCommentEntity> findByArticleIdAndStatusOrderByCreatedAtAsc(
             long articleId, KnowledgeCommentEntity.Status status);
 
+    long countByArticleIdAndStatus(long articleId, KnowledgeCommentEntity.Status status);
+
     long countByStatus(KnowledgeCommentEntity.Status status);
 }

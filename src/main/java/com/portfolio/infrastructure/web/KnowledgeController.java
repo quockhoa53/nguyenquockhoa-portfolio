@@ -1,9 +1,11 @@
 package com.portfolio.infrastructure.web;
 
 import com.portfolio.infrastructure.persistence.entity.KnowledgeArticleEntity;
+import com.portfolio.infrastructure.persistence.entity.KnowledgeCommentEntity;
 import com.portfolio.infrastructure.persistence.repository.*;
 import java.time.OffsetDateTime;
 import java.util.List;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,6 +29,7 @@ public class KnowledgeController {
     }
 
     @GetMapping("/categories")
+    @Cacheable("knowledge_categories")
     public List<CategoryResponse> categories() {
         return categories.findAllByOrderByDisplayOrderAscIdAsc().stream()
                 .map(category -> new CategoryResponse(
@@ -39,6 +42,7 @@ public class KnowledgeController {
     }
 
     @GetMapping("/articles")
+    @Cacheable("knowledge_articles")
     @Transactional(readOnly = true)
     public List<ArticleSummary> articles() {
         return articles.findByStatusOrderByPublishedAtDesc(KnowledgeArticleEntity.Status.PUBLISHED).stream()
@@ -47,11 +51,12 @@ public class KnowledgeController {
     }
 
     @GetMapping("/articles/{slug}")
+    @Cacheable(value = "knowledge_article_detail", key = "#slug")
     @Transactional
     public ArticleDetail article(@PathVariable String slug) {
         var article = articles.findBySlugAndStatus(slug, KnowledgeArticleEntity.Status.PUBLISHED)
                 .orElseThrow(ResourceNotFoundException::new);
-        article.incrementViewCount();
+        articles.incrementViewCountById(article.getId());
         return new ArticleDetail(summary(article), article.getContent());
     }
 
@@ -65,12 +70,11 @@ public class KnowledgeController {
                 article.getCategory().getName(),
                 article.getCategory().getSlug(),
                 article.isFeatured(),
-                article.getViewCount(),
+                article.getViewCount() + 1,
                 likes.countByArticleId(article.getId()),
-                comments.findByArticleIdAndStatusOrderByCreatedAtAsc(
-                                article.getId(),
-                                com.portfolio.infrastructure.persistence.entity.KnowledgeCommentEntity.Status.APPROVED)
-                        .size(),
+                comments.countByArticleIdAndStatus(
+                        article.getId(),
+                        KnowledgeCommentEntity.Status.APPROVED),
                 article.getPublishedAt());
     }
 

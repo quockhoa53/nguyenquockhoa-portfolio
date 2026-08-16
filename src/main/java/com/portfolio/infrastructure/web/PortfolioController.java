@@ -9,6 +9,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.util.List;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,31 +32,37 @@ public class PortfolioController {
     }
 
     @GetMapping("/portfolio")
+    @Cacheable("portfolio_profile")
     public Portfolio portfolio() {
         return getPortfolio.getPortfolio();
     }
 
     @GetMapping("/profile")
+    @Cacheable("portfolio_profile")
     public Portfolio.Profile profile() {
         return getPortfolio.getProfile();
     }
 
     @GetMapping("/skills")
+    @Cacheable("portfolio_skills")
     public List<Portfolio.Skill> skills() {
         return getPortfolio.getSkills();
     }
 
     @GetMapping("/experiences")
+    @Cacheable("portfolio_experiences")
     public List<Portfolio.Experience> experiences() {
         return getPortfolio.getExperiences();
     }
 
     @GetMapping("/projects")
+    @Cacheable("portfolio_projects")
     public List<Portfolio.Project> projects() {
         return getPortfolio.getProjects();
     }
 
     @GetMapping("/projects/{id}")
+    @Cacheable(value = "portfolio_project_detail", key = "#id")
     public Portfolio.Project project(@PathVariable long id) {
         return getPortfolio.getProject(id).orElseThrow(() -> new ProjectNotFoundException(id));
     }

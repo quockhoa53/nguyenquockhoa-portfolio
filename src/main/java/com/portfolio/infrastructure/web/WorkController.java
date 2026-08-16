@@ -5,6 +5,8 @@ import com.portfolio.infrastructure.persistence.repository.WorkItemJpaRepository
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -17,6 +19,7 @@ public class WorkController {
     }
 
     @GetMapping
+    @Cacheable("work_items")
     public List<WorkResponse> list() {
         return workItems.findByPublishedTrueOrderByDisplayOrderAscIdAsc().stream()
                 .map(this::response)
@@ -24,6 +27,7 @@ public class WorkController {
     }
 
     @GetMapping("/{slugOrId}")
+    @Cacheable(value = "work_item_detail", key = "#slugOrId")
     public WorkResponse detail(@PathVariable String slugOrId) {
         return workItems.findBySlugAndPublishedTrue(slugOrId)
                 .or(() -> {
@@ -35,7 +39,7 @@ public class WorkController {
                     }
                 })
                 .map(this::response)
-                .orElseThrow();
+                .orElseThrow(WorkItemNotFoundException::new);
     }
 
     private WorkResponse response(WorkItemEntity item) {
@@ -73,4 +77,7 @@ public class WorkController {
             List<String> technologies,
             int displayOrder,
             boolean published) {}
+
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    static class WorkItemNotFoundException extends RuntimeException {}
 }

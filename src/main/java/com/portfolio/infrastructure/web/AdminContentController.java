@@ -29,6 +29,7 @@ public class AdminContentController {
     private final ProjectLikeJpaRepository projectLikes;
     private final KnowledgeCommentJpaRepository knowledgeComments;
     private final ProjectCommentJpaRepository projectComments;
+    private final org.springframework.cache.CacheManager cacheManager;
 
     public AdminContentController(
             ProfileJpaRepository profiles,
@@ -43,7 +44,8 @@ public class AdminContentController {
             KnowledgeLikeJpaRepository knowledgeLikes,
             ProjectLikeJpaRepository projectLikes,
             KnowledgeCommentJpaRepository knowledgeComments,
-            ProjectCommentJpaRepository projectComments) {
+            ProjectCommentJpaRepository projectComments,
+            org.springframework.cache.CacheManager cacheManager) {
         this.profiles = profiles;
         this.skills = skills;
         this.experiences = experiences;
@@ -57,6 +59,18 @@ public class AdminContentController {
         this.projectLikes = projectLikes;
         this.knowledgeComments = knowledgeComments;
         this.projectComments = projectComments;
+        this.cacheManager = cacheManager;
+    }
+
+    private void clearCache() {
+        if (cacheManager != null) {
+            for (String name : cacheManager.getCacheNames()) {
+                var c = cacheManager.getCache(name);
+                if (c != null) {
+                    c.clear();
+                }
+            }
+        }
     }
 
     @GetMapping("/dashboard")
@@ -91,13 +105,16 @@ public class AdminContentController {
                 body.linkedinUrl(),
                 body.facebookUrl());
         profiles.save(profile);
+        clearCache();
     }
 
     @PostMapping("/skills")
     @ResponseStatus(HttpStatus.CREATED)
     public Long createSkill(@Valid @RequestBody SkillRequest body) {
-        return skills.save(new SkillEntity(body.name(), body.category(), body.proficiency(), body.displayOrder()))
+        var id = skills.save(new SkillEntity(body.name(), body.category(), body.proficiency(), body.displayOrder()))
                 .getId();
+        clearCache();
+        return id;
     }
 
     @PutMapping("/skills/{id}")
@@ -105,18 +122,20 @@ public class AdminContentController {
         var entity = skills.findById(id).orElseThrow();
         entity.update(body.name(), body.category(), body.proficiency(), body.displayOrder());
         skills.save(entity);
+        clearCache();
     }
 
     @DeleteMapping("/skills/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteSkill(@PathVariable long id) {
         skills.deleteById(id);
+        clearCache();
     }
 
     @PostMapping("/experiences")
     @ResponseStatus(HttpStatus.CREATED)
     public Long createExperience(@Valid @RequestBody ExperienceRequest body) {
-        return experiences
+        var id = experiences
                 .save(new ExperienceEntity(
                         body.company(),
                         body.position(),
@@ -125,6 +144,8 @@ public class AdminContentController {
                         cleanRich(body.description()),
                         body.displayOrder()))
                 .getId();
+        clearCache();
+        return id;
     }
 
     @PutMapping("/experiences/{id}")
@@ -138,18 +159,20 @@ public class AdminContentController {
                 cleanRich(body.description()),
                 body.displayOrder());
         experiences.save(entity);
+        clearCache();
     }
 
     @DeleteMapping("/experiences/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteExperience(@PathVariable long id) {
         experiences.deleteById(id);
+        clearCache();
     }
 
     @PostMapping("/projects")
     @ResponseStatus(HttpStatus.CREATED)
     public Long createProject(@Valid @RequestBody ProjectRequest body) {
-        return projects.save(new ProjectEntity(
+        var id = projects.save(new ProjectEntity(
                         body.title(),
                         cleanRich(body.description()),
                         body.technologies(),
@@ -159,6 +182,8 @@ public class AdminContentController {
                         body.featured(),
                         body.displayOrder()))
                 .getId();
+        clearCache();
+        return id;
     }
 
     @PutMapping("/projects/{id}")
@@ -174,19 +199,23 @@ public class AdminContentController {
                 body.featured(),
                 body.displayOrder());
         projects.save(entity);
+        clearCache();
     }
 
     @DeleteMapping("/projects/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteProject(@PathVariable long id) {
         projects.deleteById(id);
+        clearCache();
     }
 
     @PostMapping("/knowledge/categories")
     public Long createCategory(@Valid @RequestBody CategoryRequest body) {
-        return categories
+        var id = categories
                 .save(new KnowledgeCategoryEntity(body.name(), body.slug(), body.description(), body.displayOrder()))
                 .getId();
+        clearCache();
+        return id;
     }
 
     @PutMapping("/knowledge/categories/{id}")
@@ -194,12 +223,14 @@ public class AdminContentController {
         var entity = categories.findById(id).orElseThrow();
         entity.update(body.name(), body.slug(), body.description(), body.displayOrder());
         categories.save(entity);
+        clearCache();
     }
 
     @DeleteMapping("/knowledge/categories/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteCategory(@PathVariable long id) {
         categories.deleteById(id);
+        clearCache();
     }
 
     @GetMapping("/knowledge/articles")
@@ -231,7 +262,9 @@ public class AdminContentController {
                 body.thumbnailUrl(),
                 KnowledgeArticleEntity.Status.valueOf(body.status()),
                 body.featured());
-        return articles.save(entity).getId();
+        var id = articles.save(entity).getId();
+        clearCache();
+        return id;
     }
 
     @PutMapping("/knowledge/articles/{id}")
@@ -247,12 +280,14 @@ public class AdminContentController {
                 KnowledgeArticleEntity.Status.valueOf(body.status()),
                 body.featured());
         articles.save(entity);
+        clearCache();
     }
 
     @DeleteMapping("/knowledge/articles/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteArticle(@PathVariable long id) {
         articles.deleteById(id);
+        clearCache();
     }
 
     @GetMapping("/work-items")
@@ -267,7 +302,7 @@ public class AdminContentController {
                 : body.slug().trim();
         boolean isPublished = body.published() != null ? body.published() : true;
 
-        return workItems
+        var id = workItems
                 .save(new WorkItemEntity(
                         resolvedSlug,
                         body.period() == null ? "" : body.period(),
@@ -280,6 +315,8 @@ public class AdminContentController {
                         body.displayOrder(),
                         isPublished))
                 .getId();
+        clearCache();
+        return id;
     }
 
     @PutMapping("/work-items/{id}")
@@ -302,12 +339,14 @@ public class AdminContentController {
                 body.displayOrder(),
                 isPublished);
         workItems.save(entity);
+        clearCache();
     }
 
     @DeleteMapping("/work-items/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteWorkItem(@PathVariable long id) {
         workItems.deleteById(id);
+        clearCache();
     }
 
     private String slugify(String text) {

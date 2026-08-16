@@ -10,6 +10,7 @@ import jakarta.validation.constraints.Size;
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.jsoup.Jsoup;
+import org.springframework.cache.CacheManager;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -24,6 +25,7 @@ public class EngagementController {
     private final ProjectLikeJpaRepository projectLikes;
     private final KnowledgeCommentJpaRepository knowledgeComments;
     private final ProjectCommentJpaRepository projectComments;
+    private final CacheManager cacheManager;
 
     public EngagementController(
             GuestIdentityService identities,
@@ -32,7 +34,8 @@ public class EngagementController {
             KnowledgeLikeJpaRepository knowledgeLikes,
             ProjectLikeJpaRepository projectLikes,
             KnowledgeCommentJpaRepository knowledgeComments,
-            ProjectCommentJpaRepository projectComments) {
+            ProjectCommentJpaRepository projectComments,
+            CacheManager cacheManager) {
         this.identities = identities;
         this.articles = articles;
         this.projects = projects;
@@ -40,6 +43,18 @@ public class EngagementController {
         this.projectLikes = projectLikes;
         this.knowledgeComments = knowledgeComments;
         this.projectComments = projectComments;
+        this.cacheManager = cacheManager;
+    }
+
+    private void evictCache(String... names) {
+        if (cacheManager != null) {
+            for (String name : names) {
+                var c = cacheManager.getCache(name);
+                if (c != null) {
+                    c.clear();
+                }
+            }
+        }
     }
 
     @PutMapping("/knowledge/articles/{id}/like")
@@ -49,6 +64,7 @@ public class EngagementController {
         knowledgeLikes
                 .findByArticleIdAndGuestId(id, guest.getId())
                 .orElseGet(() -> knowledgeLikes.save(new KnowledgeLikeEntity(articles.getReferenceById(id), guest)));
+        evictCache("knowledge_articles", "knowledge_article_detail");
         return new LikeResponse(true, knowledgeLikes.countByArticleId(id));
     }
 
@@ -57,6 +73,7 @@ public class EngagementController {
     public LikeResponse unlikeArticle(@PathVariable long id, HttpServletRequest request) {
         var guest = identities.requireGuest(request);
         knowledgeLikes.findByArticleIdAndGuestId(id, guest.getId()).ifPresent(knowledgeLikes::delete);
+        evictCache("knowledge_articles", "knowledge_article_detail");
         return new LikeResponse(false, knowledgeLikes.countByArticleId(id));
     }
 
@@ -67,6 +84,7 @@ public class EngagementController {
         projectLikes
                 .findByProjectIdAndGuestId(id, guest.getId())
                 .orElseGet(() -> projectLikes.save(new ProjectLikeEntity(projects.getReferenceById(id), guest)));
+        evictCache("portfolio_projects", "portfolio_project_detail");
         return new LikeResponse(true, projectLikes.countByProjectId(id));
     }
 
@@ -75,6 +93,7 @@ public class EngagementController {
     public LikeResponse unlikeProject(@PathVariable long id, HttpServletRequest request) {
         var guest = identities.requireGuest(request);
         projectLikes.findByProjectIdAndGuestId(id, guest.getId()).ifPresent(projectLikes::delete);
+        evictCache("portfolio_projects", "portfolio_project_detail");
         return new LikeResponse(false, projectLikes.countByProjectId(id));
     }
 
@@ -95,8 +114,10 @@ public class EngagementController {
         var parent = body.parentId() == null
                 ? null
                 : knowledgeComments.findById(body.parentId()).orElse(null);
-        return toResponse(knowledgeComments.save(
+        var response = toResponse(knowledgeComments.save(
                 new KnowledgeCommentEntity(articles.getReferenceById(id), guest, parent, clean(body.content()))));
+        evictCache("knowledge_articles", "knowledge_article_detail");
+        return response;
     }
 
     @GetMapping("/projects/{id}/comments")
@@ -116,8 +137,10 @@ public class EngagementController {
         var parent = body.parentId() == null
                 ? null
                 : projectComments.findById(body.parentId()).orElse(null);
-        return toResponse(projectComments.save(
+        var response = toResponse(projectComments.save(
                 new ProjectCommentEntity(projects.getReferenceById(id), guest, parent, clean(body.content()))));
+        evictCache("portfolio_projects", "portfolio_project_detail");
+        return response;
     }
 
     private String clean(String value) {
