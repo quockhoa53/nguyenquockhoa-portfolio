@@ -1,6 +1,7 @@
 package com.portfolio.infrastructure.persistence.entity;
 
 import jakarta.persistence.*;
+import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "admin_allowed_ips")
@@ -9,30 +10,25 @@ public class AdminAllowedIpEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "admin_id", nullable = false)
-    private AdminUserEntity admin;
-
-    @Column(name = "ip_address", nullable = false, length = 64)
+    @Column(name = "ip_address", nullable = false, length = 64, unique = true)
     private String ipAddress;
 
     @Column(length = 255)
     private String description;
 
+    @Column(name = "created_at", nullable = false)
+    private OffsetDateTime createdAt = OffsetDateTime.now();
+
     protected AdminAllowedIpEntity() {}
 
-    public AdminAllowedIpEntity(AdminUserEntity admin, String ipAddress, String description) {
-        this.admin = admin;
+    public AdminAllowedIpEntity(String ipAddress, String description) {
         this.ipAddress = ipAddress;
         this.description = description;
+        this.createdAt = OffsetDateTime.now();
     }
 
     public Long getId() {
         return id;
-    }
-
-    public AdminUserEntity getAdmin() {
-        return admin;
     }
 
     public String getIpAddress() {
@@ -41,5 +37,9 @@ public class AdminAllowedIpEntity {
 
     public String getDescription() {
         return description;
+    }
+
+    public OffsetDateTime getCreatedAt() {
+        return createdAt;
     }
 }

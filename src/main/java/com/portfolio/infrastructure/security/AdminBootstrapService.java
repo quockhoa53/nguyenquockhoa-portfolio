@@ -25,16 +25,17 @@ public class AdminBootstrapService {
 
     @Transactional
     public void bootstrap(String username, String password, String displayName, String ipList) {
-        var admin = admins.findByUsername(username)
+        admins.findByUsername(username)
                 .orElseGet(() ->
                         admins.save(new AdminUserEntity(username, passwordEncoder.encode(password), displayName)));
-        allowedIps.deleteByAdminIdAndDescription(admin.getId(), "Bootstrap allowlist");
+        
+        allowedIps.deleteByDescription("Bootstrap allowlist");
         
         var resolvedIpList = (ipList == null || ipList.isBlank()) ? "*" : ipList;
         for (String ip : resolvedIpList.split(",")) {
             var normalizedIp = ip.trim();
-            if (!normalizedIp.isBlank() && !allowedIps.existsByAdminIdAndIpAddress(admin.getId(), normalizedIp)) {
-                allowedIps.save(new AdminAllowedIpEntity(admin, normalizedIp, "Bootstrap allowlist"));
+            if (!normalizedIp.isBlank() && !allowedIps.existsByIpAddress(normalizedIp)) {
+                allowedIps.save(new AdminAllowedIpEntity(normalizedIp, "Bootstrap allowlist"));
             }
         }
     }

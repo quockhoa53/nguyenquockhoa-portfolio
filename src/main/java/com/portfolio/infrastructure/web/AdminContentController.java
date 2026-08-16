@@ -192,9 +192,8 @@ public class AdminContentController {
         if (adminAllowedIps.existsByIpAddress(cleanIp)) {
             throw new IllegalArgumentException("Địa chỉ IP này đã tồn tại trong danh sách cấp quyền!");
         }
-        var firstAdmin = adminUsers.findAll().stream().findFirst().orElseThrow();
         var entity = adminAllowedIps.save(new AdminAllowedIpEntity(
-                firstAdmin, cleanIp, request.description() != null ? request.description().trim() : "Quản trị viên thêm"));
+                cleanIp, request.description() != null ? request.description().trim() : "Quản trị viên thêm"));
         clearCache();
         return new AdminIpResponse(entity.getId(), entity.getIpAddress(), entity.getDescription());
     }
