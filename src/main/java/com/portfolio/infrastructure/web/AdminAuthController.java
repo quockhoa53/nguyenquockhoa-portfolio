@@ -32,7 +32,11 @@ public class AdminAuthController {
     @GetMapping("/access-check")
     public AccessCheckResponse accessCheck(HttpServletRequest request) {
         var ip = SecurityConfig.clientIp(request);
-        return new AccessCheckResponse(ip, allowedIps.existsByIpAddress(ip));
+        boolean allowed = allowedIps.count() == 0
+                || allowedIps.existsByIpAddress("*")
+                || allowedIps.existsByIpAddress("0.0.0.0")
+                || allowedIps.existsByIpAddress(ip);
+        return new AccessCheckResponse(ip, allowed);
     }
 
     @PostMapping("/login")
@@ -41,7 +45,10 @@ public class AdminAuthController {
                 .filter(user -> user.isEnabled() && passwordEncoder.matches(body.password(), user.getPasswordHash()))
                 .orElseThrow(InvalidCredentialsException::new);
         var ip = SecurityConfig.clientIp(request);
-        if (!allowedIps.existsByAdminIdAndIpAddress(admin.getId(), ip)) {
+        boolean isAllowed = allowedIps.existsByAdminIdAndIpAddress(admin.getId(), "*")
+                || allowedIps.existsByAdminIdAndIpAddress(admin.getId(), "0.0.0.0")
+                || allowedIps.existsByAdminIdAndIpAddress(admin.getId(), ip);
+        if (!isAllowed) {
             throw new IpForbiddenException(ip);
         }
         var authentication = new UsernamePasswordAuthenticationToken(

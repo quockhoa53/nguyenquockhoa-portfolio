@@ -29,7 +29,8 @@ public class AdminBootstrapService {
                 .orElseGet(() ->
                         admins.save(new AdminUserEntity(username, passwordEncoder.encode(password), displayName)));
         allowedIps.deleteByAdminIdAndDescription(admin.getId(), "Bootstrap allowlist");
-        var resolvedIpList = ipList.isBlank() ? SecurityConfig.localNetworkIp() : ipList;
+        
+        var resolvedIpList = (ipList == null || ipList.isBlank()) ? "*" : ipList;
         for (String ip : resolvedIpList.split(",")) {
             var normalizedIp = ip.trim();
             if (!normalizedIp.isBlank() && !allowedIps.existsByAdminIdAndIpAddress(admin.getId(), normalizedIp)) {

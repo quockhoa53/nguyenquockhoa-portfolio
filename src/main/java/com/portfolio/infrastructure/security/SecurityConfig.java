@@ -51,7 +51,7 @@ public class SecurityConfig {
             @Value("${app.admin.bootstrap-username}") String username,
             @Value("${app.admin.bootstrap-password}") String password,
             @Value("${app.admin.bootstrap-display-name}") String displayName,
-            @Value("${app.admin.allowed-ips}") String allowedIps) {
+            @Value("${app.admin.allowed-ips:*}") String allowedIps) {
         return args -> service.bootstrap(username, password, displayName, allowedIps);
     }
 
@@ -80,7 +80,13 @@ public class SecurityConfig {
                     && authentication.isAuthenticated()
                     && !"anonymousUser".equals(authentication.getName())) {
                 var admin = admins.findByUsername(authentication.getName()).orElse(null);
-                if (admin == null || !allowedIps.existsByAdminIdAndIpAddress(admin.getId(), clientIp(request))) {
+                var clientIp = clientIp(request);
+                boolean isAllowed = admin != null && (
+                        allowedIps.existsByAdminIdAndIpAddress(admin.getId(), "*")
+                        || allowedIps.existsByAdminIdAndIpAddress(admin.getId(), "0.0.0.0")
+                        || allowedIps.existsByAdminIdAndIpAddress(admin.getId(), clientIp)
+                );
+                if (!isAllowed) {
                     response.sendError(HttpServletResponse.SC_FORBIDDEN, "IP không được phép truy cập tài khoản admin");
                     return;
                 }
@@ -90,13 +96,20 @@ public class SecurityConfig {
     }
 
     public static String clientIp(HttpServletRequest request) {
+        String[] headers = {"CF-Connecting-IP", "X-Forwarded-For", "X-Real-IP"};
+        for (String header : headers) {
+            String value = request.getHeader(header);
+            if (value != null && !value.isBlank() && !"unknown".equalsIgnoreCase(value)) {
+                return value.split(",")[0].trim();
+            }
+        }
         var remoteAddress = request.getRemoteAddr();
         try {
             if (InetAddress.getByName(remoteAddress).isLoopbackAddress()) {
                 return localNetworkIp();
             }
         } catch (Exception ignored) {
-            // Keep the original address when the servlet container returns a non-IP value.
+            // Keep original address when parsing fails
         }
         return remoteAddress;
     }
