@@ -27,7 +27,19 @@ public class AdminAllowedIpEntity {
         this.description = description;
     }
 
+    public Long getId() {
+        return id;
+    }
+
+    public AdminUserEntity getAdmin() {
+        return admin;
+    }
+
     public String getIpAddress() {
         return ipAddress;
+    }
+
+    public String getDescription() {
+        return description;
     }
 }

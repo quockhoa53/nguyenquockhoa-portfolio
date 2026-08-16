@@ -4,10 +4,14 @@ import com.portfolio.infrastructure.persistence.entity.KnowledgeCommentEntity;
 import com.portfolio.infrastructure.persistence.entity.ProjectCommentEntity;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 public interface ProjectCommentJpaRepository extends JpaRepository<ProjectCommentEntity, Long> {
     List<ProjectCommentEntity> findByProjectIdAndStatusOrderByCreatedAtAsc(
             long projectId, KnowledgeCommentEntity.Status status);
+
+    @Query("SELECT c FROM ProjectCommentEntity c JOIN FETCH c.guest ORDER BY c.createdAt DESC")
+    List<ProjectCommentEntity> findAllWithGuest();
 
     long countByProjectIdAndStatus(long projectId, KnowledgeCommentEntity.Status status);
 

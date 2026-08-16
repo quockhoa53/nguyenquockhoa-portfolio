@@ -38,6 +38,15 @@ public class AdminUserEntity {
         this.createdAt = OffsetDateTime.now();
     }
 
+    public void update(String displayName, boolean enabled) {
+        this.displayName = displayName;
+        this.enabled = enabled;
+    }
+
+    public void updatePassword(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
     public void loggedIn() {
         lastLoginAt = OffsetDateTime.now();
     }
@@ -60,5 +69,13 @@ public class AdminUserEntity {
 
     public boolean isEnabled() {
         return enabled;
+    }
+
+    public OffsetDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public OffsetDateTime getLastLoginAt() {
+        return lastLoginAt;
     }
 }

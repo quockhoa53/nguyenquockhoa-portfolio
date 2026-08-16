@@ -22,6 +22,14 @@ public class CacheConfig {
                 "work_item_detail",
                 "knowledge_categories",
                 "knowledge_articles",
-                "knowledge_article_detail");
+                "knowledge_article_detail",
+                "admin_dashboard",
+                "admin_users",
+                "admin_articles",
+                "admin_work_items",
+                "admin_comments",
+                "admin_contacts",
+                "admin_guests",
+                "admin_likes");
     }
 }

@@ -9,7 +9,9 @@ import java.util.List;
 import java.util.Map;
 import org.jsoup.Jsoup;
 import org.jsoup.safety.Safelist;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,6 +31,9 @@ public class AdminContentController {
     private final ProjectLikeJpaRepository projectLikes;
     private final KnowledgeCommentJpaRepository knowledgeComments;
     private final ProjectCommentJpaRepository projectComments;
+    private final AdminUserJpaRepository adminUsers;
+    private final AdminAllowedIpJpaRepository adminAllowedIps;
+    private final PasswordEncoder passwordEncoder;
     private final org.springframework.cache.CacheManager cacheManager;
 
     public AdminContentController(
@@ -45,6 +50,9 @@ public class AdminContentController {
             ProjectLikeJpaRepository projectLikes,
             KnowledgeCommentJpaRepository knowledgeComments,
             ProjectCommentJpaRepository projectComments,
+            AdminUserJpaRepository adminUsers,
+            AdminAllowedIpJpaRepository adminAllowedIps,
+            PasswordEncoder passwordEncoder,
             org.springframework.cache.CacheManager cacheManager) {
         this.profiles = profiles;
         this.skills = skills;
@@ -59,6 +67,9 @@ public class AdminContentController {
         this.projectLikes = projectLikes;
         this.knowledgeComments = knowledgeComments;
         this.projectComments = projectComments;
+        this.adminUsers = adminUsers;
+        this.adminAllowedIps = adminAllowedIps;
+        this.passwordEncoder = passwordEncoder;
         this.cacheManager = cacheManager;
     }
 
@@ -74,20 +85,155 @@ public class AdminContentController {
     }
 
     @GetMapping("/dashboard")
+    @Cacheable(value = "admin_dashboard", key = "'stats'")
     public Map<String, Long> dashboard() {
-        return Map.of(
-                "projects", projects.count(),
-                "skills", skills.count(),
-                "articles", articles.count(),
-                "publishedArticles", articles.countByStatus(KnowledgeArticleEntity.Status.PUBLISHED),
-                "guests", guests.count(),
-                "likes", knowledgeLikes.count() + projectLikes.count(),
-                "pendingComments",
+        return Map.ofEntries(
+                Map.entry("projects", projects.count()),
+                Map.entry("skills", skills.count()),
+                Map.entry("articles", articles.count()),
+                Map.entry("publishedArticles", articles.countByStatus(KnowledgeArticleEntity.Status.PUBLISHED)),
+                Map.entry("guests", guests.count()),
+                Map.entry("likes", knowledgeLikes.count() + projectLikes.count()),
+                Map.entry("pendingComments",
                         knowledgeComments.countByStatus(KnowledgeCommentEntity.Status.PENDING)
-                                + projectComments.countByStatus(KnowledgeCommentEntity.Status.PENDING),
-                "contacts", contacts.count(),
-                "workItems", workItems.count());
+                                + projectComments.countByStatus(KnowledgeCommentEntity.Status.PENDING)),
+                Map.entry("contacts", contacts.count()),
+                Map.entry("workItems", workItems.count()),
+                Map.entry("adminUsers", adminUsers.count()),
+                Map.entry("allowedIps", adminAllowedIps.count()));
     }
+
+    // ================= ADMIN USERS & IPS MANAGEMENT =================
+
+    @GetMapping("/users")
+    @Cacheable(value = "admin_users", key = "'all'")
+    public List<AdminUserSummaryResponse> getUsers() {
+        return adminUsers.findAll().stream()
+                .map(user -> {
+                    var ips = adminAllowedIps.findByAdminId(user.getId()).stream()
+                            .map(ip -> new AdminIpResponse(ip.getId(), ip.getIpAddress(), ip.getDescription()))
+                            .toList();
+                    return new AdminUserSummaryResponse(
+                            user.getId(),
+                            user.getUsername(),
+                            user.getDisplayName(),
+                            user.isEnabled(),
+                            user.getCreatedAt(),
+                            user.getLastLoginAt(),
+                            ips);
+                })
+                .toList();
+    }
+
+    @PostMapping("/users")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Transactional
+    public AdminUserSummaryResponse createUser(@Valid @RequestBody CreateAdminUserRequest request) {
+        if (adminUsers.findByUsername(request.username()).isPresent()) {
+            throw new IllegalArgumentException("Tên đăng nhập đã tồn tại: " + request.username());
+        }
+        var user = adminUsers.save(new AdminUserEntity(
+                request.username(),
+                passwordEncoder.encode(request.password()),
+                request.displayName()));
+
+        if (request.allowedIps() != null && !request.allowedIps().isBlank()) {
+            for (String ip : request.allowedIps().split(",")) {
+                var cleanIp = ip.trim();
+                if (!cleanIp.isBlank() && !adminAllowedIps.existsByAdminIdAndIpAddress(user.getId(), cleanIp)) {
+                    adminAllowedIps.save(new AdminAllowedIpEntity(user, cleanIp, "Khởi tạo tài khoản"));
+                }
+            }
+        }
+
+        clearCache();
+
+        var ips = adminAllowedIps.findByAdminId(user.getId()).stream()
+                .map(ip -> new AdminIpResponse(ip.getId(), ip.getIpAddress(), ip.getDescription()))
+                .toList();
+        return new AdminUserSummaryResponse(
+                user.getId(),
+                user.getUsername(),
+                user.getDisplayName(),
+                user.isEnabled(),
+                user.getCreatedAt(),
+                user.getLastLoginAt(),
+                ips);
+    }
+
+    @PutMapping("/users/{id}")
+    @Transactional
+    public AdminUserSummaryResponse updateUser(
+            @PathVariable long id,
+            @Valid @RequestBody UpdateAdminUserRequest request) {
+        var user = adminUsers.findById(id).orElseThrow();
+        user.update(request.displayName(), request.enabled() != null ? request.enabled() : user.isEnabled());
+        if (request.password() != null && !request.password().isBlank()) {
+            user.updatePassword(passwordEncoder.encode(request.password()));
+        }
+        adminUsers.save(user);
+
+        clearCache();
+
+        var ips = adminAllowedIps.findByAdminId(user.getId()).stream()
+                .map(ip -> new AdminIpResponse(ip.getId(), ip.getIpAddress(), ip.getDescription()))
+                .toList();
+        return new AdminUserSummaryResponse(
+                user.getId(),
+                user.getUsername(),
+                user.getDisplayName(),
+                user.isEnabled(),
+                user.getCreatedAt(),
+                user.getLastLoginAt(),
+                ips);
+    }
+
+    @DeleteMapping("/users/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
+    public void deleteUser(@PathVariable long id, org.springframework.security.core.Authentication auth) {
+        var user = adminUsers.findById(id).orElseThrow();
+        if (auth != null && user.getUsername().equalsIgnoreCase(auth.getName())) {
+            throw new IllegalArgumentException("Không thể tự xóa tài khoản đang đăng nhập!");
+        }
+        for (var ip : adminAllowedIps.findByAdminId(id)) {
+            adminAllowedIps.delete(ip);
+        }
+        adminUsers.delete(user);
+        clearCache();
+    }
+
+    @GetMapping("/users/{id}/ips")
+    public List<AdminIpResponse> getUserIps(@PathVariable long id) {
+        return adminAllowedIps.findByAdminId(id).stream()
+                .map(ip -> new AdminIpResponse(ip.getId(), ip.getIpAddress(), ip.getDescription()))
+                .toList();
+    }
+
+    @PostMapping("/users/{id}/ips")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Transactional
+    public AdminIpResponse addUserIp(@PathVariable long id, @Valid @RequestBody CreateIpRequest request) {
+        var user = adminUsers.findById(id).orElseThrow();
+        var cleanIp = request.ipAddress().trim();
+        if (adminAllowedIps.existsByAdminIdAndIpAddress(id, cleanIp)) {
+            throw new IllegalArgumentException("IP này đã có trong danh sách cấp quyền!");
+        }
+        var entity = adminAllowedIps.save(new AdminAllowedIpEntity(
+                user, cleanIp, request.description() != null ? request.description().trim() : "Quản trị viên thêm"));
+        clearCache();
+        return new AdminIpResponse(entity.getId(), entity.getIpAddress(), entity.getDescription());
+    }
+
+    @DeleteMapping("/users/{adminId}/ips/{ipId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
+    public void deleteUserIp(@PathVariable long adminId, @PathVariable long ipId) {
+        adminAllowedIps.deleteByIdAndAdminId(ipId, adminId);
+        clearCache();
+    }
+
+    // ================= PORTFOLIO PROFILE & CONTENT =================
 
     @PutMapping("/profile")
     public void updateProfile(@Valid @RequestBody ProfileRequest body) {
@@ -235,8 +381,9 @@ public class AdminContentController {
 
     @GetMapping("/knowledge/articles")
     @Transactional(readOnly = true)
+    @Cacheable(value = "admin_articles", key = "'all'")
     public List<AdminArticleResponse> adminArticles() {
-        return articles.findAll().stream()
+        return articles.findAllWithCategory().stream()
                 .map(article -> new AdminArticleResponse(
                         article.getId(),
                         article.getCategory().getId(),
@@ -291,6 +438,7 @@ public class AdminContentController {
     }
 
     @GetMapping("/work-items")
+    @Cacheable(value = "admin_work_items", key = "'all'")
     public List<WorkResponse> workItems() {
         return workItems.findAllByOrderByDisplayOrderAscIdAsc().stream().map(this::toWorkResponse).toList();
     }
@@ -363,8 +511,9 @@ public class AdminContentController {
 
     @GetMapping("/comments")
     @Transactional(readOnly = true)
+    @Cacheable(value = "admin_comments", key = "'all'")
     public List<AdminCommentResponse> comments() {
-        var knowledge = knowledgeComments.findAll().stream()
+        var knowledge = knowledgeComments.findAllWithGuest().stream()
                 .map(comment -> new AdminCommentResponse(
                         "KNOWLEDGE",
                         comment.getId(),
@@ -374,7 +523,7 @@ public class AdminContentController {
                         comment.getStatus().name(),
                         comment.getCreatedAt()))
                 .toList();
-        var project = projectComments.findAll().stream()
+        var project = projectComments.findAllWithGuest().stream()
                 .map(comment -> new AdminCommentResponse(
                         "PROJECT",
                         comment.getId(),
@@ -400,9 +549,11 @@ public class AdminContentController {
             comment.setStatus(status);
             projectComments.save(comment);
         }
+        clearCache();
     }
 
     @GetMapping("/contacts")
+    @Cacheable(value = "admin_contacts", key = "'all'")
     public List<ContactResponse> contacts() {
         return contacts.findAll().stream()
                 .map(contact -> new ContactResponse(
@@ -416,6 +567,7 @@ public class AdminContentController {
     }
 
     @GetMapping("/guests")
+    @Cacheable(value = "admin_guests", key = "'all'")
     public List<GuestResponse> guests() {
         return guests.findAll().stream()
                 .map(guest -> new GuestResponse(
@@ -425,8 +577,9 @@ public class AdminContentController {
 
     @GetMapping("/likes")
     @Transactional(readOnly = true)
+    @Cacheable(value = "admin_likes", key = "'all'")
     public List<LikeAdminResponse> likes() {
-        var articleLikes = knowledgeLikes.findAll().stream()
+        var articleLikes = knowledgeLikes.findAllWithDetails().stream()
                 .map(like -> new LikeAdminResponse(
                         "KNOWLEDGE",
                         like.getId(),
@@ -435,7 +588,7 @@ public class AdminContentController {
                         like.getGuest().getEmail(),
                         like.getCreatedAt()))
                 .toList();
-        var projectLikeList = projectLikes.findAll().stream()
+        var projectLikeList = projectLikes.findAllWithDetails().stream()
                 .map(like -> new LikeAdminResponse(
                         "PROJECT",
                         like.getId(),
@@ -452,6 +605,7 @@ public class AdminContentController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteContact(@PathVariable long id) {
         contacts.deleteById(id);
+        clearCache();
     }
 
     private String cleanRich(String html) {
@@ -472,6 +626,35 @@ public class AdminContentController {
                 item.getDisplayOrder(),
                 item.isPublished());
     }
+
+    public record CreateAdminUserRequest(
+            @NotBlank String username,
+            @NotBlank String password,
+            @NotBlank String displayName,
+            String allowedIps) {}
+
+    public record UpdateAdminUserRequest(
+            @NotBlank String displayName,
+            Boolean enabled,
+            String password) {}
+
+    public record CreateIpRequest(
+            @NotBlank String ipAddress,
+            String description) {}
+
+    public record AdminIpResponse(
+            Long id,
+            String ipAddress,
+            String description) {}
+
+    public record AdminUserSummaryResponse(
+            Long id,
+            String username,
+            String displayName,
+            boolean enabled,
+            java.time.OffsetDateTime createdAt,
+            java.time.OffsetDateTime lastLoginAt,
+            List<AdminIpResponse> allowedIps) {}
 
     public record ProfileRequest(
             @NotBlank String fullName,

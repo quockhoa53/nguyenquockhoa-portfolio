@@ -10,6 +10,9 @@ import org.springframework.data.repository.query.Param;
 
 public interface KnowledgeArticleJpaRepository extends JpaRepository<KnowledgeArticleEntity, Long> {
 
+    @Query("SELECT a FROM KnowledgeArticleEntity a JOIN FETCH a.category ORDER BY a.createdAt DESC")
+    List<KnowledgeArticleEntity> findAllWithCategory();
+
     @Query("SELECT a FROM KnowledgeArticleEntity a JOIN FETCH a.category WHERE a.status = :status ORDER BY a.publishedAt DESC")
     List<KnowledgeArticleEntity> findByStatusOrderByPublishedAtDesc(@Param("status") KnowledgeArticleEntity.Status status);
 
