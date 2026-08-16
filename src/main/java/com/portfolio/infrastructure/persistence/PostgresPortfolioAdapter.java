@@ -35,7 +35,19 @@ public class PostgresPortfolioAdapter implements PortfolioQueryPort {
     public Portfolio.Profile loadProfile() {
         return profiles.findFirstByOrderByIdAsc()
                 .map(this::toDomain)
-                .orElseThrow(() -> new IllegalStateException("Portfolio profile has not been configured"));
+                .orElseGet(() -> new Portfolio.Profile(
+                        1L,
+                        "Nguyễn Quốc Khoa",
+                        "Software Engineer",
+                        "Software Engineer",
+                        "<p>Software Engineer Bio</p>",
+                        "hello@example.com",
+                        "0969895549",
+                        "Đồng Tháp, Việt Nam",
+                        "/images/hero_3d_developer_character.png",
+                        "https://github.com",
+                        "https://linkedin.com",
+                        "https://facebook.com"));
     }
 
     @Override
