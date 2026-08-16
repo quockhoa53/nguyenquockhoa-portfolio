@@ -11,11 +11,15 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -40,7 +44,7 @@ public class SecurityConfig {
                                 .authenticated()
                                 .anyRequest()
                                 .permitAll())
-                .addFilterAfter(adminIpFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(adminIpFilter, UsernamePasswordAuthenticationFilter.class)
                 .logout(logout -> logout.logoutUrl("/api/v1/admin/auth/logout"))
                 .build();
     }
@@ -56,26 +60,53 @@ public class SecurityConfig {
     }
 
     @Bean
-    AdminIpFilter adminIpFilter(AdminUserJpaRepository admins, AdminAllowedIpJpaRepository allowedIps) {
-        return new AdminIpFilter(admins, allowedIps);
+    AdminIpFilter adminIpFilter(
+            AdminUserJpaRepository admins,
+            AdminAllowedIpJpaRepository allowedIps,
+            AdminTokenService tokenService) {
+        return new AdminIpFilter(admins, allowedIps, tokenService);
     }
 
     static class AdminIpFilter extends OncePerRequestFilter {
         private final AdminUserJpaRepository admins;
         private final AdminAllowedIpJpaRepository allowedIps;
+        private final AdminTokenService tokenService;
 
-        AdminIpFilter(AdminUserJpaRepository admins, AdminAllowedIpJpaRepository allowedIps) {
+        AdminIpFilter(
+                AdminUserJpaRepository admins,
+                AdminAllowedIpJpaRepository allowedIps,
+                AdminTokenService tokenService) {
             this.admins = admins;
             this.allowedIps = allowedIps;
+            this.tokenService = tokenService;
         }
 
         @Override
         protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
                 throws ServletException, IOException {
-            var authentication = org.springframework.security.core.context.SecurityContextHolder.getContext()
-                    .getAuthentication();
+            
+            // Check Bearer Token / X-Admin-Token header first
+            String token = request.getHeader("X-Admin-Token");
+            if (token == null || token.isBlank()) {
+                String authHeader = request.getHeader("Authorization");
+                if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                    token = authHeader.substring(7).trim();
+                }
+            }
+
+            if (token != null && !token.isBlank()) {
+                String username = tokenService.validateToken(token);
+                if (username != null) {
+                    var auth = new UsernamePasswordAuthenticationToken(
+                            username, null, List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                }
+            }
+
+            var authentication = SecurityContextHolder.getContext().getAuthentication();
             if (request.getRequestURI().startsWith("/api/v1/admin/")
                     && !request.getRequestURI().equals("/api/v1/admin/auth/access-check")
+                    && !request.getRequestURI().equals("/api/v1/admin/auth/login")
                     && authentication != null
                     && authentication.isAuthenticated()
                     && !"anonymousUser".equals(authentication.getName())) {

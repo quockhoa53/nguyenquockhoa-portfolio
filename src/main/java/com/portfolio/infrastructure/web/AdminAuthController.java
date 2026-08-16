@@ -2,6 +2,7 @@ package com.portfolio.infrastructure.web;
 
 import com.portfolio.infrastructure.persistence.repository.AdminAllowedIpJpaRepository;
 import com.portfolio.infrastructure.persistence.repository.AdminUserJpaRepository;
+import com.portfolio.infrastructure.security.AdminTokenService;
 import com.portfolio.infrastructure.security.SecurityConfig;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -21,12 +22,17 @@ public class AdminAuthController {
     private final AdminUserJpaRepository admins;
     private final AdminAllowedIpJpaRepository allowedIps;
     private final PasswordEncoder passwordEncoder;
+    private final AdminTokenService tokenService;
 
     public AdminAuthController(
-            AdminUserJpaRepository admins, AdminAllowedIpJpaRepository allowedIps, PasswordEncoder passwordEncoder) {
+            AdminUserJpaRepository admins,
+            AdminAllowedIpJpaRepository allowedIps,
+            PasswordEncoder passwordEncoder,
+            AdminTokenService tokenService) {
         this.admins = admins;
         this.allowedIps = allowedIps;
         this.passwordEncoder = passwordEncoder;
+        this.tokenService = tokenService;
     }
 
     @GetMapping("/access-check")
@@ -57,9 +63,17 @@ public class AdminAuthController {
         context.setAuthentication(authentication);
         SecurityContextHolder.setContext(context);
         request.getSession(true).setAttribute("SPRING_SECURITY_CONTEXT", context);
+        
         admin.loggedIn();
         admins.save(admin);
-        return Map.of("username", admin.getUsername(), "displayName", admin.getDisplayName(), "ip", ip);
+
+        String token = tokenService.generateToken(admin.getUsername());
+
+        return Map.of(
+                "token", token,
+                "username", admin.getUsername(),
+                "displayName", admin.getDisplayName(),
+                "ip", ip);
     }
 
     @GetMapping("/me")
@@ -71,7 +85,10 @@ public class AdminAuthController {
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void logout(HttpServletRequest request) {
-        request.getSession(false).invalidate();
+        var session = request.getSession(false);
+        if (session != null) {
+            session.invalidate();
+        }
         SecurityContextHolder.clearContext();
     }
 
