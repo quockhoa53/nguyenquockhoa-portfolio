@@ -103,25 +103,19 @@ public class AdminContentController {
                 Map.entry("allowedIps", adminAllowedIps.count()));
     }
 
-    // ================= ADMIN USERS & IPS MANAGEMENT =================
+    // ================= ADMIN USERS & GLOBAL IP WHITELIST =================
 
     @GetMapping("/users")
     @Cacheable(value = "admin_users", key = "'all'")
     public List<AdminUserSummaryResponse> getUsers() {
         return adminUsers.findAll().stream()
-                .map(user -> {
-                    var ips = adminAllowedIps.findByAdminId(user.getId()).stream()
-                            .map(ip -> new AdminIpResponse(ip.getId(), ip.getIpAddress(), ip.getDescription()))
-                            .toList();
-                    return new AdminUserSummaryResponse(
-                            user.getId(),
-                            user.getUsername(),
-                            user.getDisplayName(),
-                            user.isEnabled(),
-                            user.getCreatedAt(),
-                            user.getLastLoginAt(),
-                            ips);
-                })
+                .map(user -> new AdminUserSummaryResponse(
+                        user.getId(),
+                        user.getUsername(),
+                        user.getDisplayName(),
+                        user.isEnabled(),
+                        user.getCreatedAt(),
+                        user.getLastLoginAt()))
                 .toList();
     }
 
@@ -137,28 +131,15 @@ public class AdminContentController {
                 passwordEncoder.encode(request.password()),
                 request.displayName()));
 
-        if (request.allowedIps() != null && !request.allowedIps().isBlank()) {
-            for (String ip : request.allowedIps().split(",")) {
-                var cleanIp = ip.trim();
-                if (!cleanIp.isBlank() && !adminAllowedIps.existsByAdminIdAndIpAddress(user.getId(), cleanIp)) {
-                    adminAllowedIps.save(new AdminAllowedIpEntity(user, cleanIp, "Khởi tạo tài khoản"));
-                }
-            }
-        }
-
         clearCache();
 
-        var ips = adminAllowedIps.findByAdminId(user.getId()).stream()
-                .map(ip -> new AdminIpResponse(ip.getId(), ip.getIpAddress(), ip.getDescription()))
-                .toList();
         return new AdminUserSummaryResponse(
                 user.getId(),
                 user.getUsername(),
                 user.getDisplayName(),
                 user.isEnabled(),
                 user.getCreatedAt(),
-                user.getLastLoginAt(),
-                ips);
+                user.getLastLoginAt());
     }
 
     @PutMapping("/users/{id}")
@@ -175,17 +156,13 @@ public class AdminContentController {
 
         clearCache();
 
-        var ips = adminAllowedIps.findByAdminId(user.getId()).stream()
-                .map(ip -> new AdminIpResponse(ip.getId(), ip.getIpAddress(), ip.getDescription()))
-                .toList();
         return new AdminUserSummaryResponse(
                 user.getId(),
                 user.getUsername(),
                 user.getDisplayName(),
                 user.isEnabled(),
                 user.getCreatedAt(),
-                user.getLastLoginAt(),
-                ips);
+                user.getLastLoginAt());
     }
 
     @DeleteMapping("/users/{id}")
@@ -196,40 +173,37 @@ public class AdminContentController {
         if (auth != null && user.getUsername().equalsIgnoreCase(auth.getName())) {
             throw new IllegalArgumentException("Không thể tự xóa tài khoản đang đăng nhập!");
         }
-        for (var ip : adminAllowedIps.findByAdminId(id)) {
-            adminAllowedIps.delete(ip);
-        }
         adminUsers.delete(user);
         clearCache();
     }
 
-    @GetMapping("/users/{id}/ips")
-    public List<AdminIpResponse> getUserIps(@PathVariable long id) {
-        return adminAllowedIps.findByAdminId(id).stream()
+    @GetMapping("/allowed-ips")
+    public List<AdminIpResponse> getAllowedIps() {
+        return adminAllowedIps.findAll().stream()
                 .map(ip -> new AdminIpResponse(ip.getId(), ip.getIpAddress(), ip.getDescription()))
                 .toList();
     }
 
-    @PostMapping("/users/{id}/ips")
+    @PostMapping("/allowed-ips")
     @ResponseStatus(HttpStatus.CREATED)
     @Transactional
-    public AdminIpResponse addUserIp(@PathVariable long id, @Valid @RequestBody CreateIpRequest request) {
-        var user = adminUsers.findById(id).orElseThrow();
+    public AdminIpResponse createAllowedIp(@Valid @RequestBody CreateIpRequest request) {
         var cleanIp = request.ipAddress().trim();
-        if (adminAllowedIps.existsByAdminIdAndIpAddress(id, cleanIp)) {
-            throw new IllegalArgumentException("IP này đã có trong danh sách cấp quyền!");
+        if (adminAllowedIps.existsByIpAddress(cleanIp)) {
+            throw new IllegalArgumentException("Địa chỉ IP này đã tồn tại trong danh sách cấp quyền!");
         }
+        var firstAdmin = adminUsers.findAll().stream().findFirst().orElseThrow();
         var entity = adminAllowedIps.save(new AdminAllowedIpEntity(
-                user, cleanIp, request.description() != null ? request.description().trim() : "Quản trị viên thêm"));
+                firstAdmin, cleanIp, request.description() != null ? request.description().trim() : "Quản trị viên thêm"));
         clearCache();
         return new AdminIpResponse(entity.getId(), entity.getIpAddress(), entity.getDescription());
     }
 
-    @DeleteMapping("/users/{adminId}/ips/{ipId}")
+    @DeleteMapping("/allowed-ips/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Transactional
-    public void deleteUserIp(@PathVariable long adminId, @PathVariable long ipId) {
-        adminAllowedIps.deleteByIdAndAdminId(ipId, adminId);
+    public void deleteAllowedIp(@PathVariable long id) {
+        adminAllowedIps.deleteById(id);
         clearCache();
     }
 
@@ -630,8 +604,7 @@ public class AdminContentController {
     public record CreateAdminUserRequest(
             @NotBlank String username,
             @NotBlank String password,
-            @NotBlank String displayName,
-            String allowedIps) {}
+            @NotBlank String displayName) {}
 
     public record UpdateAdminUserRequest(
             @NotBlank String displayName,
@@ -653,8 +626,7 @@ public class AdminContentController {
             String displayName,
             boolean enabled,
             java.time.OffsetDateTime createdAt,
-            java.time.OffsetDateTime lastLoginAt,
-            List<AdminIpResponse> allowedIps) {}
+            java.time.OffsetDateTime lastLoginAt) {}
 
     public record ProfileRequest(
             @NotBlank String fullName,

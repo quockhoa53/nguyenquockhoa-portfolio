@@ -51,9 +51,10 @@ public class AdminAuthController {
                 .filter(user -> user.isEnabled() && passwordEncoder.matches(body.password(), user.getPasswordHash()))
                 .orElseThrow(InvalidCredentialsException::new);
         var ip = SecurityConfig.clientIp(request);
-        boolean isAllowed = allowedIps.existsByAdminIdAndIpAddress(admin.getId(), "*")
-                || allowedIps.existsByAdminIdAndIpAddress(admin.getId(), "0.0.0.0")
-                || allowedIps.existsByAdminIdAndIpAddress(admin.getId(), ip);
+        boolean isAllowed = allowedIps.count() == 0
+                || allowedIps.existsByIpAddress("*")
+                || allowedIps.existsByIpAddress("0.0.0.0")
+                || allowedIps.existsByIpAddress(ip);
         if (!isAllowed) {
             throw new IpForbiddenException(ip);
         }

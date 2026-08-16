@@ -113,9 +113,10 @@ public class SecurityConfig {
                 var admin = admins.findByUsername(authentication.getName()).orElse(null);
                 var clientIp = clientIp(request);
                 boolean isAllowed = admin != null && (
-                        allowedIps.existsByAdminIdAndIpAddress(admin.getId(), "*")
-                        || allowedIps.existsByAdminIdAndIpAddress(admin.getId(), "0.0.0.0")
-                        || allowedIps.existsByAdminIdAndIpAddress(admin.getId(), clientIp)
+                        allowedIps.count() == 0
+                        || allowedIps.existsByIpAddress("*")
+                        || allowedIps.existsByIpAddress("0.0.0.0")
+                        || allowedIps.existsByIpAddress(clientIp)
                 );
                 if (!isAllowed) {
                     response.sendError(HttpServletResponse.SC_FORBIDDEN, "IP không được phép truy cập tài khoản admin");
