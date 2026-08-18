@@ -22,6 +22,15 @@ public class AdminUserEntity {
     @Column(nullable = false)
     private boolean enabled;
 
+    @Column(name = "totp_secret", length = 100)
+    private String totpSecret;
+
+    @Column(name = "totp_enabled", nullable = false)
+    private boolean totpEnabled;
+
+    @Column(name = "totp_setup_at")
+    private OffsetDateTime totpSetupAt;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -35,6 +44,7 @@ public class AdminUserEntity {
         this.passwordHash = passwordHash;
         this.displayName = displayName;
         this.enabled = true;
+        this.totpEnabled = false;
         this.createdAt = OffsetDateTime.now();
     }
 
@@ -45,6 +55,22 @@ public class AdminUserEntity {
 
     public void updatePassword(String passwordHash) {
         this.passwordHash = passwordHash;
+    }
+
+    public void setupTotp(String secret) {
+        this.totpSecret = secret;
+        this.totpEnabled = true;
+        this.totpSetupAt = OffsetDateTime.now();
+    }
+
+    public void assignPendingTotpSecret(String secret) {
+        this.totpSecret = secret;
+    }
+
+    public void resetTotp() {
+        this.totpSecret = null;
+        this.totpEnabled = false;
+        this.totpSetupAt = null;
     }
 
     public void loggedIn() {
@@ -69,6 +95,18 @@ public class AdminUserEntity {
 
     public boolean isEnabled() {
         return enabled;
+    }
+
+    public String getTotpSecret() {
+        return totpSecret;
+    }
+
+    public boolean isTotpEnabled() {
+        return totpEnabled;
+    }
+
+    public OffsetDateTime getTotpSetupAt() {
+        return totpSetupAt;
     }
 
     public OffsetDateTime getCreatedAt() {

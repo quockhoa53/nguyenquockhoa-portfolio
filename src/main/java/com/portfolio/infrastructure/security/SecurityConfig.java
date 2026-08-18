@@ -1,7 +1,5 @@
 package com.portfolio.infrastructure.security;
 
-import com.portfolio.infrastructure.persistence.repository.AdminAllowedIpJpaRepository;
-import com.portfolio.infrastructure.persistence.repository.AdminUserJpaRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -34,17 +32,20 @@ public class SecurityConfig {
     }
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, AdminIpFilter adminIpFilter) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, AdminTokenFilter adminTokenFilter) throws Exception {
         return http.csrf(csrf -> csrf.disable())
                 .cors(cors -> {})
                 .authorizeHttpRequests(
-                        auth -> auth.requestMatchers("/api/v1/admin/auth/login", "/api/v1/admin/auth/access-check")
-                                .permitAll()
-                                .requestMatchers("/api/v1/admin/**")
-                                .authenticated()
-                                .anyRequest()
-                                .permitAll())
-                .addFilterBefore(adminIpFilter, UsernamePasswordAuthenticationFilter.class)
+                        auth -> auth
+                                .requestMatchers(
+                                        "/api/v1/admin/auth/login",
+                                        "/api/v1/admin/auth/verify-2fa",
+                                        "/api/v1/admin/auth/access-check"
+                                ).permitAll()
+                                .requestMatchers("/api/v1/admin/**").authenticated()
+                                .anyRequest().permitAll()
+                )
+                .addFilterBefore(adminTokenFilter, UsernamePasswordAuthenticationFilter.class)
                 .logout(logout -> logout.logoutUrl("/api/v1/admin/auth/logout"))
                 .build();
     }
@@ -60,24 +61,14 @@ public class SecurityConfig {
     }
 
     @Bean
-    AdminIpFilter adminIpFilter(
-            AdminUserJpaRepository admins,
-            AdminAllowedIpJpaRepository allowedIps,
-            AdminTokenService tokenService) {
-        return new AdminIpFilter(admins, allowedIps, tokenService);
+    AdminTokenFilter adminTokenFilter(AdminTokenService tokenService) {
+        return new AdminTokenFilter(tokenService);
     }
 
-    static class AdminIpFilter extends OncePerRequestFilter {
-        private final AdminUserJpaRepository admins;
-        private final AdminAllowedIpJpaRepository allowedIps;
+    static class AdminTokenFilter extends OncePerRequestFilter {
         private final AdminTokenService tokenService;
 
-        AdminIpFilter(
-                AdminUserJpaRepository admins,
-                AdminAllowedIpJpaRepository allowedIps,
-                AdminTokenService tokenService) {
-            this.admins = admins;
-            this.allowedIps = allowedIps;
+        AdminTokenFilter(AdminTokenService tokenService) {
             this.tokenService = tokenService;
         }
 
@@ -85,7 +76,7 @@ public class SecurityConfig {
         protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
                 throws ServletException, IOException {
             
-            // Check Bearer Token / X-Admin-Token header first
+            // Check Bearer Token / X-Admin-Token header
             String token = request.getHeader("X-Admin-Token");
             if (token == null || token.isBlank()) {
                 String authHeader = request.getHeader("Authorization");
@@ -103,26 +94,6 @@ public class SecurityConfig {
                 }
             }
 
-            var authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (request.getRequestURI().startsWith("/api/v1/admin/")
-                    && !request.getRequestURI().equals("/api/v1/admin/auth/access-check")
-                    && !request.getRequestURI().equals("/api/v1/admin/auth/login")
-                    && authentication != null
-                    && authentication.isAuthenticated()
-                    && !"anonymousUser".equals(authentication.getName())) {
-                var admin = admins.findByUsername(authentication.getName()).orElse(null);
-                var clientIp = clientIp(request);
-                boolean isAllowed = admin != null && (
-                        allowedIps.count() == 0
-                        || allowedIps.existsByIpAddress("*")
-                        || allowedIps.existsByIpAddress("0.0.0.0")
-                        || allowedIps.existsByIpAddress(clientIp)
-                );
-                if (!isAllowed) {
-                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "IP không được phép truy cập tài khoản admin");
-                    return;
-                }
-            }
             chain.doFilter(request, response);
         }
     }

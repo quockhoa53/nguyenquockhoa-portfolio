@@ -24,6 +24,13 @@ public class AdminTokenService {
         return Base64.getUrlEncoder().withoutPadding().encodeToString((payload + ":" + signature).getBytes(StandardCharsets.UTF_8));
     }
 
+    public String generatePreAuthToken(String username) {
+        long expiry = Instant.now().plusSeconds(300).getEpochSecond(); // 5 minutes validity
+        String payload = "PRE_AUTH:" + username + ":" + expiry;
+        String signature = sign(payload);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString((payload + ":" + signature).getBytes(StandardCharsets.UTF_8));
+    }
+
     public String validateToken(String token) {
         if (token == null || token.isBlank()) {
             return null;
@@ -42,6 +49,31 @@ public class AdminTokenService {
                 return null;
             }
             if (!sign(username + ":" + expiry).equals(signature)) {
+                return null;
+            }
+            return username;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public String validatePreAuthToken(String token) {
+        if (token == null || token.isBlank()) {
+            return null;
+        }
+        try {
+            String decoded = new String(Base64.getUrlDecoder().decode(token.trim()), StandardCharsets.UTF_8);
+            String[] parts = decoded.split(":");
+            if (parts.length != 4 || !"PRE_AUTH".equals(parts[0])) {
+                return null;
+            }
+            String username = parts[1];
+            long expiry = Long.parseLong(parts[2]);
+            String signature = parts[3];
+            if (Instant.now().getEpochSecond() > expiry) {
+                return null;
+            }
+            if (!sign("PRE_AUTH:" + username + ":" + expiry).equals(signature)) {
                 return null;
             }
             return username;
