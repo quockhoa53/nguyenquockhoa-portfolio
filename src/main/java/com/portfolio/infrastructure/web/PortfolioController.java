@@ -37,7 +37,6 @@ public class PortfolioController {
     }
 
     @GetMapping("/ai-facts")
-    @Cacheable("portfolio_ai_facts")
     public List<com.portfolio.infrastructure.persistence.entity.AiFactEntity> aiFacts() {
         return aiFacts.findAllByIsActiveTrueOrderByDisplayOrderAscIdAsc();
     }
