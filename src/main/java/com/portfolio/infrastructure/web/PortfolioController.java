@@ -25,10 +25,21 @@ public class PortfolioController {
 
     private final GetPortfolioUseCase getPortfolio;
     private final SendContactMessageUseCase sendContact;
+    private final com.portfolio.infrastructure.persistence.repository.SpringDataAiFactRepository aiFacts;
 
-    public PortfolioController(GetPortfolioUseCase getPortfolio, SendContactMessageUseCase sendContact) {
+    public PortfolioController(
+            GetPortfolioUseCase getPortfolio,
+            SendContactMessageUseCase sendContact,
+            com.portfolio.infrastructure.persistence.repository.SpringDataAiFactRepository aiFacts) {
         this.getPortfolio = getPortfolio;
         this.sendContact = sendContact;
+        this.aiFacts = aiFacts;
+    }
+
+    @GetMapping("/ai-facts")
+    @Cacheable("portfolio_ai_facts")
+    public List<com.portfolio.infrastructure.persistence.entity.AiFactEntity> aiFacts() {
+        return aiFacts.findAllByIsActiveTrueOrderByDisplayOrderAscIdAsc();
     }
 
     @GetMapping("/portfolio")
