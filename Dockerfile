@@ -30,8 +30,8 @@ COPY --from=builder /app/build/libs/*.jar app.jar
 # Expose standard Spring Boot port
 EXPOSE 8080
 
-# Configure memory limits optimized for free tier instances (512MB RAM)
-ENV JAVA_OPTS="-Xms128m -Xmx256m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+# Configure memory limits optimized for free tier instances (512MB RAM) and fast entropy
+ENV JAVA_OPTS="-Xms128m -Xmx320m -XX:+UseG1GC -XX:MaxGCPauseMillis=100 -Djava.security.egd=file:/dev/./urandom"
 
 # Start Spring Boot application
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
