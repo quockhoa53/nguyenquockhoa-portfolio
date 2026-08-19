@@ -6,6 +6,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "profiles")
@@ -47,7 +49,8 @@ public class ProfileEntity {
     @Column(name = "facebook_url", columnDefinition = "TEXT")
     private String facebookUrl;
 
-    @Column(columnDefinition = "TEXT")
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "education", columnDefinition = "jsonb")
     private String education;
 
     protected ProfileEntity() {}
