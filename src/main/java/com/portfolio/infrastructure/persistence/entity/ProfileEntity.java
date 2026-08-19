@@ -47,6 +47,9 @@ public class ProfileEntity {
     @Column(name = "facebook_url", columnDefinition = "TEXT")
     private String facebookUrl;
 
+    @Column(columnDefinition = "TEXT")
+    private String education;
+
     protected ProfileEntity() {}
 
     public void update(
@@ -60,7 +63,8 @@ public class ProfileEntity {
             String avatarUrl,
             String githubUrl,
             String linkedinUrl,
-            String facebookUrl) {
+            String facebookUrl,
+            String education) {
         this.fullName = fullName;
         this.headline = headline;
         this.shortBio = shortBio;
@@ -72,6 +76,9 @@ public class ProfileEntity {
         this.githubUrl = githubUrl;
         this.linkedinUrl = linkedinUrl;
         this.facebookUrl = facebookUrl;
+        if (education != null) {
+            this.education = education;
+        }
     }
 
     public Long getId() {
@@ -120,5 +127,9 @@ public class ProfileEntity {
 
     public String getFacebookUrl() {
         return facebookUrl;
+    }
+
+    public String getEducation() {
+        return education;
     }
 }

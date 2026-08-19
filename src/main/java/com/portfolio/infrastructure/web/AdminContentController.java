@@ -222,7 +222,8 @@ public class AdminContentController {
                 body.avatarUrl(),
                 body.githubUrl(),
                 body.linkedinUrl(),
-                body.facebookUrl());
+                body.facebookUrl(),
+                body.education());
         profiles.save(profile);
         clearCache();
     }
@@ -691,7 +692,8 @@ public class AdminContentController {
             String avatarUrl,
             String githubUrl,
             String linkedinUrl,
-            String facebookUrl) {}
+            String facebookUrl,
+            String education) {}
 
     public record SkillRequest(
             @NotBlank String name, @NotBlank String category, @Min(0) @Max(100) int proficiency, int displayOrder) {}

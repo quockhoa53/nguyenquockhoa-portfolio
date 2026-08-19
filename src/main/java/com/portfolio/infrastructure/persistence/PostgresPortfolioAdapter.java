@@ -47,7 +47,8 @@ public class PostgresPortfolioAdapter implements PortfolioQueryPort {
                         "/images/hero_3d_developer_character.png",
                         "https://github.com",
                         "https://linkedin.com",
-                        "https://facebook.com"));
+                        "https://facebook.com",
+                        "{\"school\": \"Học viện Công nghệ Bưu chính Viễn thông (PTIT)\", \"major\": \"Công nghệ Thông tin\", \"degree\": \"Kỹ sư\", \"period\": \"2020 — 2024\"}"));
     }
 
     @Override
@@ -89,7 +90,8 @@ public class PostgresPortfolioAdapter implements PortfolioQueryPort {
                 e.getAvatarUrl(),
                 e.getGithubUrl(),
                 e.getLinkedinUrl(),
-                e.getFacebookUrl());
+                e.getFacebookUrl(),
+                e.getEducation());
     }
 
     private Portfolio.Skill toDomain(SkillEntity e) {

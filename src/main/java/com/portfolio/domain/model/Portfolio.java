@@ -16,7 +16,8 @@ public record Portfolio(Profile profile, List<Skill> skills, List<Experience> ex
             String avatarUrl,
             String githubUrl,
             String linkedinUrl,
-            String facebookUrl) {}
+            String facebookUrl,
+            String education) {}
 
     public record Skill(Long id, String name, String category, int proficiency, int displayOrder) {}
 
