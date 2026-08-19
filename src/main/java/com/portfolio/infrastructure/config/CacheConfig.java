@@ -12,12 +12,13 @@ public class CacheConfig {
 
     @Bean
     public CacheManager cacheManager() {
-        return new ConcurrentMapCacheManager(
+        var manager = new ConcurrentMapCacheManager(
                 "portfolio_profile",
                 "portfolio_skills",
                 "portfolio_experiences",
                 "portfolio_projects",
                 "portfolio_project_detail",
+                "portfolio_ai_facts",
                 "work_items",
                 "work_item_detail",
                 "knowledge_categories",
@@ -30,6 +31,9 @@ public class CacheConfig {
                 "admin_comments",
                 "admin_contacts",
                 "admin_guests",
-                "admin_likes");
+                "admin_likes",
+                "admin_ai_facts");
+        manager.setDynamic(true);
+        return manager;
     }
 }
