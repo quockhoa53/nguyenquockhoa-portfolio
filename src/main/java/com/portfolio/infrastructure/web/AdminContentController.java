@@ -33,6 +33,7 @@ public class AdminContentController {
     private final ProjectCommentJpaRepository projectComments;
     private final AdminUserJpaRepository adminUsers;
     private final AdminAllowedIpJpaRepository adminAllowedIps;
+    private final SpringDataAiFactRepository aiFacts;
     private final PasswordEncoder passwordEncoder;
     private final org.springframework.cache.CacheManager cacheManager;
 
@@ -52,6 +53,7 @@ public class AdminContentController {
             ProjectCommentJpaRepository projectComments,
             AdminUserJpaRepository adminUsers,
             AdminAllowedIpJpaRepository adminAllowedIps,
+            SpringDataAiFactRepository aiFacts,
             PasswordEncoder passwordEncoder,
             org.springframework.cache.CacheManager cacheManager) {
         this.profiles = profiles;
@@ -69,6 +71,7 @@ public class AdminContentController {
         this.projectComments = projectComments;
         this.adminUsers = adminUsers;
         this.adminAllowedIps = adminAllowedIps;
+        this.aiFacts = aiFacts;
         this.passwordEncoder = passwordEncoder;
         this.cacheManager = cacheManager;
     }
@@ -524,6 +527,46 @@ public class AdminContentController {
         clearCache();
     }
 
+    @GetMapping("/ai-facts")
+    public List<AiFactEntity> getAiFacts() {
+        return aiFacts.findAllByOrderByDisplayOrderAscIdAsc();
+    }
+
+    @PostMapping("/ai-facts")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Long createAiFact(@Valid @RequestBody AiFactRequest body) {
+        var id = aiFacts.save(new AiFactEntity(
+                body.category() != null && !body.category().isBlank() ? body.category().trim() : "Khác",
+                body.title().trim(),
+                body.content().trim(),
+                body.isActive() != null ? body.isActive() : true,
+                body.displayOrder() != null ? body.displayOrder() : 0
+        )).getId();
+        clearCache();
+        return id;
+    }
+
+    @PutMapping("/ai-facts/{id}")
+    public void updateAiFact(@PathVariable long id, @Valid @RequestBody AiFactRequest body) {
+        var fact = aiFacts.findById(id).orElseThrow();
+        fact.update(
+                body.category() != null && !body.category().isBlank() ? body.category().trim() : "Khác",
+                body.title().trim(),
+                body.content().trim(),
+                body.isActive() != null ? body.isActive() : true,
+                body.displayOrder() != null ? body.displayOrder() : 0
+        );
+        aiFacts.save(fact);
+        clearCache();
+    }
+
+    @DeleteMapping("/ai-facts/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteAiFact(@PathVariable long id) {
+        aiFacts.deleteById(id);
+        clearCache();
+    }
+
     private String slugify(String text) {
         if (text == null || text.isBlank()) return "work-item-" + System.currentTimeMillis();
         String normalized = java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD);
@@ -781,4 +824,11 @@ public class AdminContentController {
 
     public record LikeAdminResponse(
             String type, Long id, String title, String displayName, String email, java.time.OffsetDateTime createdAt) {}
+
+    public record AiFactRequest(
+            String category,
+            @NotBlank String title,
+            @NotBlank String content,
+            Boolean isActive,
+            Integer displayOrder) {}
 }
