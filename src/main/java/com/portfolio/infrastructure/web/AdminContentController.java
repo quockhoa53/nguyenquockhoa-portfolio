@@ -372,16 +372,43 @@ public class AdminContentController {
 
     @PostMapping("/knowledge/articles")
     public Long createArticle(@Valid @RequestBody ArticleRequest body) {
-        var category = categories.findById(body.categoryId()).orElseThrow();
+        Long catId = body.categoryId();
+        KnowledgeCategoryEntity category;
+        if (catId == null) {
+            category = categories.findAll().stream().findFirst().orElseThrow(() -> new IllegalArgumentException("Vui lòng tạo ít nhất một danh mục kiến thức trước."));
+        } else {
+            category = categories.findById(catId).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy danh mục kiến thức"));
+        }
+        String resolvedSlug = (body.slug() == null || body.slug().isBlank())
+                ? slugify(body.title())
+                : body.slug().trim();
+        String rawContent = (body.content() != null && !body.content().isBlank())
+                ? body.content()
+                : (body.summary() != null ? body.summary() : "");
+        String cleanContent = cleanRich(rawContent);
+        String resolvedSummary = (body.summary() != null && !body.summary().isBlank())
+                ? cleanRich(body.summary())
+                : (cleanContent.length() > 200 ? cleanContent.substring(0, 200) + "..." : cleanContent);
+        
+        KnowledgeArticleEntity.Status status = KnowledgeArticleEntity.Status.PUBLISHED;
+        if (body.status() != null && !body.status().isBlank()) {
+            try {
+                status = KnowledgeArticleEntity.Status.valueOf(body.status().trim().toUpperCase());
+            } catch (Exception ignored) {}
+        } else if (body.published() != null && !body.published()) {
+            status = KnowledgeArticleEntity.Status.DRAFT;
+        }
+        boolean isFeatured = body.featured() != null ? body.featured() : false;
+
         var entity = new KnowledgeArticleEntity(
                 category,
-                body.title(),
-                body.slug(),
-                body.summary(),
-                cleanRich(body.content()),
+                body.title().trim(),
+                resolvedSlug,
+                resolvedSummary,
+                cleanContent,
                 body.thumbnailUrl(),
-                KnowledgeArticleEntity.Status.valueOf(body.status()),
-                body.featured());
+                status,
+                isFeatured);
         var id = articles.save(entity).getId();
         clearCache();
         return id;
@@ -390,15 +417,41 @@ public class AdminContentController {
     @PutMapping("/knowledge/articles/{id}")
     public void updateArticle(@PathVariable long id, @Valid @RequestBody ArticleRequest body) {
         var entity = articles.findById(id).orElseThrow();
+        Long catId = body.categoryId();
+        KnowledgeCategoryEntity category = (catId != null)
+                ? categories.findById(catId).orElse(entity.getCategory())
+                : entity.getCategory();
+
+        String resolvedSlug = (body.slug() == null || body.slug().isBlank())
+                ? (entity.getSlug() != null ? entity.getSlug() : slugify(body.title()))
+                : body.slug().trim();
+        String rawContent = (body.content() != null && !body.content().isBlank())
+                ? body.content()
+                : (body.summary() != null && !body.summary().isBlank() ? body.summary() : entity.getContent());
+        String cleanContent = cleanRich(rawContent);
+        String resolvedSummary = (body.summary() != null && !body.summary().isBlank())
+                ? cleanRich(body.summary())
+                : entity.getSummary();
+
+        KnowledgeArticleEntity.Status status = entity.getStatus();
+        if (body.status() != null && !body.status().isBlank()) {
+            try {
+                status = KnowledgeArticleEntity.Status.valueOf(body.status().trim().toUpperCase());
+            } catch (Exception ignored) {}
+        } else if (body.published() != null) {
+            status = body.published() ? KnowledgeArticleEntity.Status.PUBLISHED : KnowledgeArticleEntity.Status.DRAFT;
+        }
+        boolean isFeatured = body.featured() != null ? body.featured() : entity.isFeatured();
+
         entity.update(
-                categories.findById(body.categoryId()).orElseThrow(),
-                body.title(),
-                body.slug(),
-                body.summary(),
-                cleanRich(body.content()),
+                category,
+                body.title().trim(),
+                resolvedSlug,
+                resolvedSummary,
+                cleanContent,
                 body.thumbnailUrl(),
-                KnowledgeArticleEntity.Status.valueOf(body.status()),
-                body.featured());
+                status,
+                isFeatured);
         articles.save(entity);
         clearCache();
     }
@@ -664,14 +717,15 @@ public class AdminContentController {
     public record CategoryRequest(@NotBlank String name, @NotBlank String slug, String description, int displayOrder) {}
 
     public record ArticleRequest(
-            @NotNull Long categoryId,
+            Long categoryId,
             @NotBlank String title,
-            @NotBlank String slug,
+            String slug,
             String summary,
-            @NotBlank String content,
+            String content,
             String thumbnailUrl,
-            @NotBlank String status,
-            boolean featured) {}
+            String status,
+            Boolean published,
+            Boolean featured) {}
 
     public record WorkRequest(
             String slug,
