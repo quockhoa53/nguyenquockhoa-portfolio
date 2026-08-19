@@ -32,7 +32,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, AdminTokenFilter adminTokenFilter) throws Exception {
+    SecurityFilterChain securityFilterChain(
+            HttpSecurity http, AdminTokenFilter adminTokenFilter, RateLimitingFilter rateLimitingFilter) throws Exception {
         return http.csrf(csrf -> csrf.disable())
                 .cors(cors -> {})
                 .authorizeHttpRequests(
@@ -45,6 +46,7 @@ public class SecurityConfig {
                                 .requestMatchers("/api/v1/admin/**").authenticated()
                                 .anyRequest().permitAll()
                 )
+                .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(adminTokenFilter, UsernamePasswordAuthenticationFilter.class)
                 .logout(logout -> logout.logoutUrl("/api/v1/admin/auth/logout"))
                 .build();
