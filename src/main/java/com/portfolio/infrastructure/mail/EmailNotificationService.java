@@ -3,11 +3,12 @@ package com.portfolio.infrastructure.mail;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.portfolio.domain.model.ContactMessage;
 import jakarta.mail.internet.MimeMessage;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -90,7 +91,7 @@ public class EmailNotificationService {
             deliverMessage(
                     "Hệ Thống Portfolio Test",
                     senderEmail,
-                    "Kiểm tra kết nối Gmail SMTP / Mail Service",
+                    "Kiểm tra kết nối Gmail SMTP / Resend API",
                     "Đây là email kiểm tra kết nối từ hệ thống Portfolio của Nguyễn Quốc Khoa. Dịch vụ gửi email thông báo đã hoạt động hoàn hảo!",
                     OffsetDateTime.now());
             String success = "✅ Đã gửi TEST email thành công tới " + recipientEmail + " lúc "
@@ -164,11 +165,22 @@ public class EmailNotificationService {
     }
 
     private boolean sendViaResendApi(String fromName, String replyToEmail, String subject, String htmlContent) {
+        HttpURLConnection conn = null;
         try {
-            log.info("Attempting email dispatch via Resend HTTPS API...");
-            HttpClient client = HttpClient.newBuilder()
-                    .connectTimeout(Duration.ofSeconds(10))
-                    .build();
+            log.info(
+                    "Attempting email dispatch via Resend HTTPS API with key: {}...",
+                    resendApiKey.substring(0, Math.min(6, resendApiKey.length())) + "...");
+
+            URL url = URI.create("https://api.resend.com/emails").toURL();
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Authorization", "Bearer " + resendApiKey.trim());
+            conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+            conn.setRequestProperty("User-Agent", "NQK-Portfolio-Backend/1.0");
+            conn.setConnectTimeout(15000);
+            conn.setReadTimeout(15000);
+            conn.setDoOutput(true);
+
             String payload = objectMapper.writeValueAsString(Map.of(
                     "from",
                     "NQK Portfolio <onboarding@resend.dev>",
@@ -181,25 +193,29 @@ public class EmailNotificationService {
                     "html",
                     htmlContent));
 
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("https://api.resend.com/emails"))
-                    .header("Authorization", "Bearer " + resendApiKey.trim())
-                    .header("Content-Type", "application/json")
-                    .timeout(Duration.ofSeconds(12))
-                    .POST(HttpRequest.BodyPublishers.ofString(payload))
-                    .build();
+            try (OutputStream os = conn.getOutputStream()) {
+                os.write(payload.getBytes(StandardCharsets.UTF_8));
+                os.flush();
+            }
 
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                log.info("Successfully delivered email via Resend HTTPS API: {}", response.body());
+            int statusCode = conn.getResponseCode();
+            InputStream is = statusCode >= 200 && statusCode < 300 ? conn.getInputStream() : conn.getErrorStream();
+            String responseBody = is != null ? new String(is.readAllBytes(), StandardCharsets.UTF_8) : "";
+
+            if (statusCode >= 200 && statusCode < 300) {
+                log.info("Successfully delivered email via Resend HTTPS API: {}", responseBody);
                 return true;
             } else {
-                log.warn("Resend API rejected with status {}: {}", response.statusCode(), response.body());
+                log.warn("Resend API rejected with status {}: {}", statusCode, responseBody);
                 return false;
             }
         } catch (Exception e) {
-            log.warn("Resend API dispatch failed: {}", e.getMessage());
+            log.warn("Resend API dispatch failed: {}", e.getMessage(), e);
             return false;
+        } finally {
+            if (conn != null) {
+                conn.disconnect();
+            }
         }
     }
 
