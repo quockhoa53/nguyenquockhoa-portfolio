@@ -171,14 +171,15 @@ public class EmailNotificationService {
                     resendApiKey.substring(0, Math.min(6, resendApiKey.length())) + "...");
 
             var factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
-            factory.setConnectTimeout(10000);
-            factory.setReadTimeout(10000);
+            factory.setConnectTimeout(15000);
+            factory.setReadTimeout(25000);
 
             var restClient = org.springframework.web.client.RestClient.builder()
                     .requestFactory(factory)
                     .baseUrl("https://api.resend.com")
                     .defaultHeader("Authorization", "Bearer " + resendApiKey.trim())
                     .defaultHeader("Content-Type", "application/json")
+                    .defaultHeader("Accept", "application/json")
                     .defaultHeader("User-Agent", "NQK-Portfolio-Backend/1.0")
                     .build();
 
@@ -195,10 +196,12 @@ public class EmailNotificationService {
                     htmlContent);
 
             var response =
-                    restClient.post().uri("/emails").body(payload).retrieve().toEntity(String.class);
+                    restClient.post().uri("/emails").body(payload).retrieve().toBodilessEntity();
 
             if (response.getStatusCode().is2xxSuccessful()) {
-                log.info("Successfully delivered email via Resend HTTPS API: {}", response.getBody());
+                log.info(
+                        "Successfully delivered email via Resend HTTPS API (HTTP {})",
+                        response.getStatusCode().value());
                 return true;
             } else {
                 log.warn("Resend API returned status: {}", response.getStatusCode());
