@@ -25,21 +25,9 @@ spring:
           time_zone: UTC
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
-    port: ${MAIL_PORT:587}
+    port: ${MAIL_PORT:465}
     username: ${MAIL_USERNAME:nguyenquockhoa5549@gmail.com}
     password: ${MAIL_PASSWORD:}
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-            required: true
-          ssl:
-            trust: "*"
-          connectiontimeout: 10000
-          timeout: 10000
-          writetimeout: 10000
 server:
   port: ${PORT:${SERVER_PORT:8080}}
   forward-headers-strategy: framework
@@ -62,6 +50,7 @@ app:
   mail:
     recipient: ${NOTIFY_EMAIL:nguyenquockhoa5549@gmail.com}
     enabled: ${MAIL_ENABLED:true}
+    resend-api-key: ${RESEND_API_KEY:}
   cloudinary:
     cloud-name: ${CLOUDINARY_CLOUD_NAME:}
     api-key: ${CLOUDINARY_API_KEY:}

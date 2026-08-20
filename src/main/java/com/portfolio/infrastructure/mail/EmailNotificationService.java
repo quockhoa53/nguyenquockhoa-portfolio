@@ -1,12 +1,24 @@
 package com.portfolio.infrastructure.mail;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.portfolio.domain.model.ContactMessage;
 import jakarta.mail.internet.MimeMessage;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -17,47 +29,203 @@ public class EmailNotificationService {
     private static final Logger log = LoggerFactory.getLogger(EmailNotificationService.class);
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss (XXX)");
 
-    private final JavaMailSender mailSender;
+    private final JavaMailSender defaultMailSender;
     private final String recipientEmail;
     private final String senderEmail;
+    private final String password;
+    private final String resendApiKey;
     private final boolean mailEnabled;
+    private final ObjectMapper objectMapper;
+
+    private final AtomicReference<String> lastStatus =
+            new AtomicReference<>("Chưa có lượt gửi email nào kể từ khi khởi động.");
 
     public EmailNotificationService(
-            JavaMailSender mailSender,
+            JavaMailSender defaultMailSender,
             @Value("${app.mail.recipient:nguyenquockhoa5549@gmail.com}") String recipientEmail,
             @Value("${spring.mail.username:nguyenquockhoa5549@gmail.com}") String senderEmail,
-            @Value("${app.mail.enabled:true}") boolean mailEnabled) {
-        this.mailSender = mailSender;
+            @Value("${spring.mail.password:}") String password,
+            @Value("${app.mail.resend-api-key:}") String resendApiKey,
+            @Value("${app.mail.enabled:true}") boolean mailEnabled,
+            ObjectMapper objectMapper) {
+        this.defaultMailSender = defaultMailSender;
         this.recipientEmail = recipientEmail;
         this.senderEmail = senderEmail;
+        this.password = password;
+        this.resendApiKey = resendApiKey;
         this.mailEnabled = mailEnabled;
+        this.objectMapper = objectMapper;
+    }
+
+    public String getLastStatus() {
+        return lastStatus.get();
     }
 
     @Async
     public void sendContactNotification(ContactMessage message) {
-        if (!mailEnabled || mailSender == null) {
-            log.info("Email notification is disabled or mail sender not configured.");
+        if (!mailEnabled) {
+            String status = "Email notification is disabled in configuration (app.mail.enabled=false).";
+            log.warn(status);
+            lastStatus.set(status);
             return;
         }
 
         try {
             log.info("Sending contact notification email to {} for message from {}", recipientEmail, message.email());
-            MimeMessage mimeMessage = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "UTF-8");
+            deliverMessage(message.name(), message.email(), message.subject(), message.message(), message.createdAt());
+            String successMsg = "✅ Đã gửi email thông báo thành công tới " + recipientEmail + " lúc "
+                    + OffsetDateTime.now().format(FORMATTER);
+            log.info(successMsg);
+            lastStatus.set(successMsg);
+        } catch (Exception e) {
+            String errorMsg = "❌ Lỗi gửi email thông báo tới " + recipientEmail + ": " + e.getMessage();
+            log.error(errorMsg, e);
+            lastStatus.set(errorMsg);
+        }
+    }
 
+    public String sendTestEmail() {
+        try {
+            log.info("Triggering manual TEST email to {}", recipientEmail);
+            deliverMessage(
+                    "Hệ Thống Portfolio Test",
+                    senderEmail,
+                    "Kiểm tra kết nối Gmail SMTP / Mail Service",
+                    "Đây là email kiểm tra kết nối từ hệ thống Portfolio của Nguyễn Quốc Khoa. Dịch vụ gửi email thông báo đã hoạt động hoàn hảo!",
+                    OffsetDateTime.now());
+            String success = "✅ Đã gửi TEST email thành công tới " + recipientEmail + " lúc "
+                    + OffsetDateTime.now().format(FORMATTER);
+            log.info(success);
+            lastStatus.set(success);
+            return success;
+        } catch (Exception e) {
+            String error = "❌ Gửi test email thất bại: " + e.getMessage();
+            log.error(error, e);
+            lastStatus.set(error);
+            throw new RuntimeException(error, e);
+        }
+    }
+
+    private void deliverMessage(
+            String fromName, String replyToEmail, String subject, String content, OffsetDateTime createdAt)
+            throws Exception {
+        String timeStr = createdAt != null
+                ? createdAt.format(FORMATTER)
+                : OffsetDateTime.now().format(FORMATTER);
+        String safeContent = escapeHtml(content).replace("\n", "<br/>");
+        String safeName = escapeHtml(fromName);
+        String safeEmail = escapeHtml(replyToEmail);
+        String safeSubject = escapeHtml(subject);
+
+        String htmlBody = buildHtmlTemplate(safeName, safeEmail, safeSubject, timeStr, safeContent);
+
+        // 1. First priority: Resend HTTPS API if API key provided (immune to Render SMTP port blocks)
+        if (resendApiKey != null && !resendApiKey.isBlank()) {
+            if (sendViaResendApi(fromName, replyToEmail, subject, htmlBody)) {
+                return;
+            }
+        }
+
+        // 2. Second priority: Port 465 Direct SSL SMTPS (Default mailSender configured for 465)
+        try {
+            MimeMessage mimeMessage = defaultMailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "UTF-8");
             helper.setFrom(senderEmail, "NQK Portfolio Notification");
             helper.setTo(recipientEmail);
-            helper.setReplyTo(message.email(), message.name());
-            helper.setSubject("📬 [NQK Portfolio] Tin nhắn mới từ " + message.name() + ": " + message.subject());
+            if (replyToEmail != null && replyToEmail.contains("@")) {
+                helper.setReplyTo(replyToEmail, fromName);
+            }
+            helper.setSubject("📬 [NQK Portfolio] Tin nhắn mới từ " + fromName + ": " + subject);
+            helper.setText(htmlBody, true);
 
-            String timeStr = message.createdAt() != null ? message.createdAt().format(FORMATTER) : "Vừa xong";
-            String safeContent = escapeHtml(message.message()).replace("\n", "<br/>");
-            String safeName = escapeHtml(message.name());
-            String safeEmail = escapeHtml(message.email());
-            String safeSubject = escapeHtml(message.subject());
+            defaultMailSender.send(mimeMessage);
+            log.info("Delivered email successfully via Port 465 SSL");
+            return;
+        } catch (Exception e465) {
+            log.warn(
+                    "Port 465 SSL delivery failed ({}), attempting fallback to Port 587 STARTTLS...",
+                    e465.getMessage());
+        }
 
-            String htmlBody =
-                    """
+        // 3. Fallback: Port 587 STARTTLS
+        JavaMailSenderImpl fallback587 = createFallback587Sender();
+        MimeMessage mimeMessage587 = fallback587.createMimeMessage();
+        MimeMessageHelper helper587 = new MimeMessageHelper(mimeMessage587, "UTF-8");
+        helper587.setFrom(senderEmail, "NQK Portfolio Notification");
+        helper587.setTo(recipientEmail);
+        if (replyToEmail != null && replyToEmail.contains("@")) {
+            helper587.setReplyTo(replyToEmail, fromName);
+        }
+        helper587.setSubject("📬 [NQK Portfolio] Tin nhắn mới từ " + fromName + ": " + subject);
+        helper587.setText(htmlBody, true);
+
+        fallback587.send(mimeMessage587);
+        log.info("Delivered email successfully via Port 587 STARTTLS fallback");
+    }
+
+    private boolean sendViaResendApi(String fromName, String replyToEmail, String subject, String htmlContent) {
+        try {
+            log.info("Attempting email dispatch via Resend HTTPS API...");
+            HttpClient client = HttpClient.newBuilder()
+                    .connectTimeout(Duration.ofSeconds(10))
+                    .build();
+            String payload = objectMapper.writeValueAsString(Map.of(
+                    "from",
+                    "NQK Portfolio <onboarding@resend.dev>",
+                    "to",
+                    List.of(recipientEmail),
+                    "reply_to",
+                    replyToEmail != null && replyToEmail.contains("@") ? replyToEmail : recipientEmail,
+                    "subject",
+                    "📬 [NQK Portfolio] Tin nhắn mới từ " + fromName + ": " + subject,
+                    "html",
+                    htmlContent));
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.resend.com/emails"))
+                    .header("Authorization", "Bearer " + resendApiKey.trim())
+                    .header("Content-Type", "application/json")
+                    .timeout(Duration.ofSeconds(12))
+                    .POST(HttpRequest.BodyPublishers.ofString(payload))
+                    .build();
+
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                log.info("Successfully delivered email via Resend HTTPS API: {}", response.body());
+                return true;
+            } else {
+                log.warn("Resend API rejected with status {}: {}", response.statusCode(), response.body());
+                return false;
+            }
+        } catch (Exception e) {
+            log.warn("Resend API dispatch failed: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    private JavaMailSenderImpl createFallback587Sender() {
+        JavaMailSenderImpl sender = new JavaMailSenderImpl();
+        sender.setHost("smtp.gmail.com");
+        sender.setPort(587);
+        sender.setUsername(senderEmail);
+        sender.setPassword(password);
+        sender.setDefaultEncoding("UTF-8");
+
+        Properties props = sender.getJavaMailProperties();
+        props.put("mail.transport.protocol", "smtp");
+        props.put("mail.smtp.auth", "true");
+        props.put("mail.smtp.starttls.enable", "true");
+        props.put("mail.smtp.starttls.required", "true");
+        props.put("mail.smtp.ssl.trust", "*");
+        props.put("mail.smtp.connectiontimeout", "10000");
+        props.put("mail.smtp.timeout", "10000");
+        props.put("mail.smtp.writetimeout", "10000");
+        return sender;
+    }
+
+    private String buildHtmlTemplate(
+            String safeName, String safeEmail, String safeSubject, String timeStr, String safeContent) {
+        return """
                 <!DOCTYPE html>
                 <html lang="vi">
                 <head>
@@ -121,43 +289,16 @@ public class EmailNotificationService {
                 </body>
                 </html>
                 """
-                            .formatted(
-                                    safeName,
-                                    safeEmail,
-                                    safeEmail,
-                                    safeSubject,
-                                    timeStr,
-                                    safeContent,
-                                    safeEmail,
-                                    safeSubject,
-                                    safeName);
-
-            helper.setText(htmlBody, true);
-            mailSender.send(mimeMessage);
-            log.info("Successfully delivered contact notification email to {}", recipientEmail);
-
-        } catch (Exception e) {
-            log.error("Failed to send contact notification email to {}: {}", recipientEmail, e.getMessage(), e);
-        }
-    }
-
-    public void sendTestEmail() {
-        try {
-            log.info("Sending TEST email to {}", recipientEmail);
-            MimeMessage mimeMessage = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "UTF-8");
-            helper.setFrom(senderEmail, "NQK Portfolio System");
-            helper.setTo(recipientEmail);
-            helper.setSubject("🧪 [Test Email] Kiểm tra kết nối Gmail SMTP thành công!");
-            helper.setText(
-                    "<h3>Xin chào Nguyễn Quốc Khoa!</h3><p>Hệ thống Portfolio Backend đã kết nối thành công tới Gmail SMTP và sẵn sàng gửi thông báo khi có người liên hệ.</p>",
-                    true);
-            mailSender.send(mimeMessage);
-            log.info("Test email delivered successfully to {}", recipientEmail);
-        } catch (Exception e) {
-            log.error("Test email failed to send: {}", e.getMessage(), e);
-            throw new RuntimeException("Lỗi gửi test email: " + e.getMessage(), e);
-        }
+                .formatted(
+                        safeName,
+                        safeEmail,
+                        safeEmail,
+                        safeSubject,
+                        timeStr,
+                        safeContent,
+                        safeEmail,
+                        safeSubject,
+                        safeName);
     }
 
     private String escapeHtml(String text) {
