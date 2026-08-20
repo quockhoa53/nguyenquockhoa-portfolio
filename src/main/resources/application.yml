@@ -60,3 +60,7 @@ app:
   mail:
     recipient: ${NOTIFY_EMAIL:nguyenquockhoa5549@gmail.com}
     enabled: ${MAIL_ENABLED:true}
+  cloudinary:
+    cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+    api-key: ${CLOUDINARY_API_KEY:}
+    api-secret: ${CLOUDINARY_API_SECRET:}
