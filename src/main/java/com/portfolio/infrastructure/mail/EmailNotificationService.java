@@ -141,6 +141,25 @@ public class EmailNotificationService {
         }
     }
 
+    public void sendTestEmail() {
+        try {
+            log.info("Sending TEST email to {}", recipientEmail);
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "UTF-8");
+            helper.setFrom(senderEmail, "NQK Portfolio System");
+            helper.setTo(recipientEmail);
+            helper.setSubject("🧪 [Test Email] Kiểm tra kết nối Gmail SMTP thành công!");
+            helper.setText(
+                    "<h3>Xin chào Nguyễn Quốc Khoa!</h3><p>Hệ thống Portfolio Backend đã kết nối thành công tới Gmail SMTP và sẵn sàng gửi thông báo khi có người liên hệ.</p>",
+                    true);
+            mailSender.send(mimeMessage);
+            log.info("Test email delivered successfully to {}", recipientEmail);
+        } catch (Exception e) {
+            log.error("Test email failed to send: {}", e.getMessage(), e);
+            throw new RuntimeException("Lỗi gửi test email: " + e.getMessage(), e);
+        }
+    }
+
     private String escapeHtml(String text) {
         if (text == null) return "";
         return text.replace("&", "&amp;")
