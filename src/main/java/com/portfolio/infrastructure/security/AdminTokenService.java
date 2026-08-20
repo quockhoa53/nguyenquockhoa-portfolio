@@ -13,7 +13,8 @@ public class AdminTokenService {
 
     private final String secret;
 
-    public AdminTokenService(@Value("${app.guest.cookie-secret:portfolio-default-token-secret-key-2024}") String secret) {
+    public AdminTokenService(
+            @Value("${app.guest.cookie-secret:portfolio-default-token-secret-key-2024}") String secret) {
         this.secret = secret;
     }
 
@@ -21,14 +22,18 @@ public class AdminTokenService {
         long expiry = Instant.now().plusSeconds(86400 * 7).getEpochSecond(); // 7 days validity
         String payload = username + ":" + expiry;
         String signature = sign(payload);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString((payload + ":" + signature).getBytes(StandardCharsets.UTF_8));
+        return Base64.getUrlEncoder()
+                .withoutPadding()
+                .encodeToString((payload + ":" + signature).getBytes(StandardCharsets.UTF_8));
     }
 
     public String generatePreAuthToken(String username) {
         long expiry = Instant.now().plusSeconds(300).getEpochSecond(); // 5 minutes validity
         String payload = "PRE_AUTH:" + username + ":" + expiry;
         String signature = sign(payload);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString((payload + ":" + signature).getBytes(StandardCharsets.UTF_8));
+        return Base64.getUrlEncoder()
+                .withoutPadding()
+                .encodeToString((payload + ":" + signature).getBytes(StandardCharsets.UTF_8));
     }
 
     public String validateToken(String token) {

@@ -58,11 +58,14 @@ public class AdminAuthController {
         response.put("username", admin.getUsername());
 
         // Check if user has already configured and enabled 2FA
-        if (!admin.isTotpEnabled() || admin.getTotpSecret() == null || admin.getTotpSecret().isBlank()) {
+        if (!admin.isTotpEnabled()
+                || admin.getTotpSecret() == null
+                || admin.getTotpSecret().isBlank()) {
             // First-time 2FA Setup
-            String secret = (admin.getTotpSecret() != null && !admin.getTotpSecret().isBlank())
-                    ? admin.getTotpSecret()
-                    : totpService.generateSecret();
+            String secret =
+                    (admin.getTotpSecret() != null && !admin.getTotpSecret().isBlank())
+                            ? admin.getTotpSecret()
+                            : totpService.generateSecret();
             admin.assignPendingTotpSecret(secret);
             admins.save(admin);
 
@@ -98,7 +101,8 @@ public class AdminAuthController {
 
         boolean isValid = totpService.verifyCode(secret, body.code());
         if (!isValid) {
-            throw new InvalidTotpException("Mã 2FA không chính xác hoặc đã hết hạn. Vui lòng nhập mã mới từ ứng dụng Authenticator.");
+            throw new InvalidTotpException(
+                    "Mã 2FA không chính xác hoặc đã hết hạn. Vui lòng nhập mã mới từ ứng dụng Authenticator.");
         }
 
         // Activate 2FA if first time
@@ -122,8 +126,7 @@ public class AdminAuthController {
                 "username", admin.getUsername(),
                 "displayName", admin.getDisplayName(),
                 "roles", List.of("ADMIN"),
-                "totpEnabled", true
-        );
+                "totpEnabled", true);
     }
 
     /**
@@ -139,11 +142,14 @@ public class AdminAuthController {
 
         String otpAuthUri = totpService.buildOtpAuthUri(admin.getUsername(), newSecret);
         return Map.of(
-                "success", true,
-                "totpSecret", newSecret,
-                "otpAuthUri", otpAuthUri,
-                "message", "Đã tạo mã QR 2FA mới. Vui lòng quét vào Google Authenticator để kích hoạt lại."
-        );
+                "success",
+                true,
+                "totpSecret",
+                newSecret,
+                "otpAuthUri",
+                otpAuthUri,
+                "message",
+                "Đã tạo mã QR 2FA mới. Vui lòng quét vào Google Authenticator để kích hoạt lại.");
     }
 
     @GetMapping("/me")
@@ -153,8 +159,8 @@ public class AdminAuthController {
                 "username", admin.getUsername(),
                 "displayName", admin.getDisplayName(),
                 "totpEnabled", admin.isTotpEnabled(),
-                "totpSetupAt", admin.getTotpSetupAt() != null ? admin.getTotpSetupAt().toString() : ""
-        );
+                "totpSetupAt",
+                        admin.getTotpSetupAt() != null ? admin.getTotpSetupAt().toString() : "");
     }
 
     @PostMapping("/logout")

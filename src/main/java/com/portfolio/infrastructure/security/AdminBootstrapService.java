@@ -15,9 +15,7 @@ public class AdminBootstrapService {
     private final PasswordEncoder passwordEncoder;
 
     public AdminBootstrapService(
-            AdminUserJpaRepository admins,
-            AdminAllowedIpJpaRepository allowedIps,
-            PasswordEncoder passwordEncoder) {
+            AdminUserJpaRepository admins, AdminAllowedIpJpaRepository allowedIps, PasswordEncoder passwordEncoder) {
         this.admins = admins;
         this.allowedIps = allowedIps;
         this.passwordEncoder = passwordEncoder;
@@ -28,9 +26,9 @@ public class AdminBootstrapService {
         admins.findByUsername(username)
                 .orElseGet(() ->
                         admins.save(new AdminUserEntity(username, passwordEncoder.encode(password), displayName)));
-        
+
         allowedIps.deleteByDescription("Bootstrap allowlist");
-        
+
         var resolvedIpList = (ipList == null || ipList.isBlank()) ? "*" : ipList;
         for (String ip : resolvedIpList.split(",")) {
             var normalizedIp = ip.trim();

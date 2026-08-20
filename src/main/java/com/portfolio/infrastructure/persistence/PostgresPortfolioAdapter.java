@@ -35,20 +35,21 @@ public class PostgresPortfolioAdapter implements PortfolioQueryPort {
     public Portfolio.Profile loadProfile() {
         return profiles.findFirstByOrderByIdAsc()
                 .map(this::toDomain)
-                .orElseGet(() -> new Portfolio.Profile(
-                        1L,
-                        "Nguyễn Quốc Khoa",
-                        "Software Engineer",
-                        "Software Engineer",
-                        "<p>Software Engineer Bio</p>",
-                        "hello@example.com",
-                        "0969895549",
-                        "Đồng Tháp, Việt Nam",
-                        "/images/hero_3d_developer_character.png",
-                        "https://github.com",
-                        "https://linkedin.com",
-                        "https://facebook.com",
-                        "{\"school\": \"Học viện Công nghệ Bưu chính Viễn thông (PTIT)\", \"major\": \"Công nghệ Thông tin\", \"degree\": \"Kỹ sư\", \"period\": \"2020 — 2024\"}"));
+                .orElseGet(
+                        () -> new Portfolio.Profile(
+                                1L,
+                                "Nguyễn Quốc Khoa",
+                                "Software Engineer",
+                                "Software Engineer",
+                                "<p>Software Engineer Bio</p>",
+                                "hello@example.com",
+                                "0969895549",
+                                "Đồng Tháp, Việt Nam",
+                                "/images/hero_3d_developer_character.png",
+                                "https://github.com",
+                                "https://linkedin.com",
+                                "https://facebook.com",
+                                "{\"school\": \"Học viện Công nghệ Bưu chính Viễn thông (PTIT)\", \"major\": \"Công nghệ Thông tin\", \"degree\": \"Kỹ sư\", \"period\": \"2020 — 2024\"}"));
     }
 
     @Override

@@ -39,8 +39,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     private static final long CLEANUP_INTERVAL_MS = 300_000; // Clean every 5 minutes
 
     @Override
-    protected void doFilterInternal(
-            HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
         // Periodic eviction of stale IP buckets to prevent memory accumulation
@@ -52,7 +51,8 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         // 1. Strict protection for Authentication endpoints (Chống Brute Force & DoS CPU)
         if (path.contains("/admin/auth/login") || path.contains("/admin/auth/verify-2fa")) {
             if (!isAllowed(authBuckets, clientIp, AUTH_MAX_REQUESTS, AUTH_WINDOW_MS)) {
-                sendRateLimitError(response, "Hệ thống phát hiện tần suất gửi yêu cầu quá nhanh. Vui lòng thử lại sau 30 giây.");
+                sendRateLimitError(
+                        response, "Hệ thống phát hiện tần suất gửi yêu cầu quá nhanh. Vui lòng thử lại sau 30 giây.");
                 return;
             }
         }
@@ -91,8 +91,9 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
         response.setHeader("Retry-After", "30");
-        response.getWriter().write(String.format(
-                "{\"success\":false,\"error\":\"TOO_MANY_REQUESTS\",\"message\":\"%s\"}", message));
+        response.getWriter()
+                .write(String.format(
+                        "{\"success\":false,\"error\":\"TOO_MANY_REQUESTS\",\"message\":\"%s\"}", message));
     }
 
     private void evictStaleBucketsIfNeeded() {

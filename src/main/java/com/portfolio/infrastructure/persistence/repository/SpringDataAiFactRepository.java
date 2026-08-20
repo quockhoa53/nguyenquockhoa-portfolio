@@ -6,5 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface SpringDataAiFactRepository extends JpaRepository<AiFactEntity, Long> {
     List<AiFactEntity> findAllByOrderByDisplayOrderAscIdAsc();
+
     List<AiFactEntity> findAllByIsActiveTrueOrderByDisplayOrderAscIdAsc();
 }

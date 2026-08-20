@@ -29,7 +29,8 @@ public class WorkController {
     @GetMapping("/{slugOrId}")
     @Cacheable(value = "work_item_detail", key = "#slugOrId")
     public WorkResponse detail(@PathVariable String slugOrId) {
-        return workItems.findBySlugAndPublishedTrue(slugOrId)
+        return workItems
+                .findBySlugAndPublishedTrue(slugOrId)
                 .or(() -> {
                     try {
                         long id = Long.parseLong(slugOrId);

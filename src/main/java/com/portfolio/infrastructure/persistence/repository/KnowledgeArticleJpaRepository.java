@@ -13,11 +13,14 @@ public interface KnowledgeArticleJpaRepository extends JpaRepository<KnowledgeAr
     @Query("SELECT a FROM KnowledgeArticleEntity a JOIN FETCH a.category ORDER BY a.createdAt DESC")
     List<KnowledgeArticleEntity> findAllWithCategory();
 
-    @Query("SELECT a FROM KnowledgeArticleEntity a JOIN FETCH a.category WHERE a.status = :status ORDER BY a.publishedAt DESC")
-    List<KnowledgeArticleEntity> findByStatusOrderByPublishedAtDesc(@Param("status") KnowledgeArticleEntity.Status status);
+    @Query(
+            "SELECT a FROM KnowledgeArticleEntity a JOIN FETCH a.category WHERE a.status = :status ORDER BY a.publishedAt DESC")
+    List<KnowledgeArticleEntity> findByStatusOrderByPublishedAtDesc(
+            @Param("status") KnowledgeArticleEntity.Status status);
 
     @Query("SELECT a FROM KnowledgeArticleEntity a JOIN FETCH a.category WHERE a.slug = :slug AND a.status = :status")
-    Optional<KnowledgeArticleEntity> findBySlugAndStatus(@Param("slug") String slug, @Param("status") KnowledgeArticleEntity.Status status);
+    Optional<KnowledgeArticleEntity> findBySlugAndStatus(
+            @Param("slug") String slug, @Param("status") KnowledgeArticleEntity.Status status);
 
     @Modifying
     @Query("UPDATE KnowledgeArticleEntity a SET a.viewCount = a.viewCount + 1 WHERE a.id = :id")

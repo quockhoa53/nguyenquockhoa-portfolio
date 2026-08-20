@@ -44,8 +44,7 @@ public class TotpService {
                 "otpauth://totp/%s?secret=%s&issuer=%s&algorithm=SHA1&digits=6&period=30",
                 URLEncoder.encode(label, StandardCharsets.UTF_8).replace("+", "%20"),
                 secret,
-                URLEncoder.encode(issuer, StandardCharsets.UTF_8).replace("+", "%20")
-        );
+                URLEncoder.encode(issuer, StandardCharsets.UTF_8).replace("+", "%20"));
     }
 
     /**

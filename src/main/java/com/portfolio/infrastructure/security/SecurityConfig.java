@@ -33,19 +33,19 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain securityFilterChain(
-            HttpSecurity http, AdminTokenFilter adminTokenFilter, RateLimitingFilter rateLimitingFilter) throws Exception {
+            HttpSecurity http, AdminTokenFilter adminTokenFilter, RateLimitingFilter rateLimitingFilter)
+            throws Exception {
         return http.csrf(csrf -> csrf.disable())
                 .cors(cors -> {})
-                .authorizeHttpRequests(
-                        auth -> auth
-                                .requestMatchers(
-                                        "/api/v1/admin/auth/login",
-                                        "/api/v1/admin/auth/verify-2fa",
-                                        "/api/v1/admin/auth/access-check"
-                                ).permitAll()
-                                .requestMatchers("/api/v1/admin/**").authenticated()
-                                .anyRequest().permitAll()
-                )
+                .authorizeHttpRequests(auth -> auth.requestMatchers(
+                                "/api/v1/admin/auth/login",
+                                "/api/v1/admin/auth/verify-2fa",
+                                "/api/v1/admin/auth/access-check")
+                        .permitAll()
+                        .requestMatchers("/api/v1/admin/**")
+                        .authenticated()
+                        .anyRequest()
+                        .permitAll())
                 .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(adminTokenFilter, UsernamePasswordAuthenticationFilter.class)
                 .logout(logout -> logout.logoutUrl("/api/v1/admin/auth/logout"))
@@ -77,7 +77,7 @@ public class SecurityConfig {
         @Override
         protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
                 throws ServletException, IOException {
-            
+
             // Check Bearer Token / X-Admin-Token header
             String token = request.getHeader("X-Admin-Token");
             if (token == null || token.isBlank()) {

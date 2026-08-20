@@ -97,7 +97,8 @@ public class AdminContentController {
                 Map.entry("publishedArticles", articles.countByStatus(KnowledgeArticleEntity.Status.PUBLISHED)),
                 Map.entry("guests", guests.count()),
                 Map.entry("likes", knowledgeLikes.count() + projectLikes.count()),
-                Map.entry("pendingComments",
+                Map.entry(
+                        "pendingComments",
                         knowledgeComments.countByStatus(KnowledgeCommentEntity.Status.PENDING)
                                 + projectComments.countByStatus(KnowledgeCommentEntity.Status.PENDING)),
                 Map.entry("contacts", contacts.count()),
@@ -130,9 +131,7 @@ public class AdminContentController {
             throw new IllegalArgumentException("Tên đăng nhập đã tồn tại: " + request.username());
         }
         var user = adminUsers.save(new AdminUserEntity(
-                request.username(),
-                passwordEncoder.encode(request.password()),
-                request.displayName()));
+                request.username(), passwordEncoder.encode(request.password()), request.displayName()));
 
         clearCache();
 
@@ -148,8 +147,7 @@ public class AdminContentController {
     @PutMapping("/users/{id}")
     @Transactional
     public AdminUserSummaryResponse updateUser(
-            @PathVariable long id,
-            @Valid @RequestBody UpdateAdminUserRequest request) {
+            @PathVariable long id, @Valid @RequestBody UpdateAdminUserRequest request) {
         var user = adminUsers.findById(id).orElseThrow();
         user.update(request.displayName(), request.enabled() != null ? request.enabled() : user.isEnabled());
         if (request.password() != null && !request.password().isBlank()) {
@@ -379,9 +377,14 @@ public class AdminContentController {
         Long catId = body.categoryId();
         KnowledgeCategoryEntity category;
         if (catId == null) {
-            category = categories.findAll().stream().findFirst().orElseThrow(() -> new IllegalArgumentException("Vui lòng tạo ít nhất một danh mục kiến thức trước."));
+            category = categories.findAll().stream()
+                    .findFirst()
+                    .orElseThrow(
+                            () -> new IllegalArgumentException("Vui lòng tạo ít nhất một danh mục kiến thức trước."));
         } else {
-            category = categories.findById(catId).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy danh mục kiến thức"));
+            category = categories
+                    .findById(catId)
+                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy danh mục kiến thức"));
         }
         String resolvedSlug = (body.slug() == null || body.slug().isBlank())
                 ? slugify(body.title())
@@ -393,12 +396,14 @@ public class AdminContentController {
         String resolvedSummary = (body.summary() != null && !body.summary().isBlank())
                 ? cleanRich(body.summary())
                 : (cleanContent.length() > 200 ? cleanContent.substring(0, 200) + "..." : cleanContent);
-        
+
         KnowledgeArticleEntity.Status status = KnowledgeArticleEntity.Status.PUBLISHED;
         if (body.status() != null && !body.status().isBlank()) {
             try {
-                status = KnowledgeArticleEntity.Status.valueOf(body.status().trim().toUpperCase());
-            } catch (Exception ignored) {}
+                status = KnowledgeArticleEntity.Status.valueOf(
+                        body.status().trim().toUpperCase());
+            } catch (Exception ignored) {
+            }
         } else if (body.published() != null && !body.published()) {
             status = KnowledgeArticleEntity.Status.DRAFT;
         }
@@ -422,9 +427,8 @@ public class AdminContentController {
     public void updateArticle(@PathVariable long id, @Valid @RequestBody ArticleRequest body) {
         var entity = articles.findById(id).orElseThrow();
         Long catId = body.categoryId();
-        KnowledgeCategoryEntity category = (catId != null)
-                ? categories.findById(catId).orElse(entity.getCategory())
-                : entity.getCategory();
+        KnowledgeCategoryEntity category =
+                (catId != null) ? categories.findById(catId).orElse(entity.getCategory()) : entity.getCategory();
 
         String resolvedSlug = (body.slug() == null || body.slug().isBlank())
                 ? (entity.getSlug() != null ? entity.getSlug() : slugify(body.title()))
@@ -433,15 +437,16 @@ public class AdminContentController {
                 ? body.content()
                 : (body.summary() != null && !body.summary().isBlank() ? body.summary() : entity.getContent());
         String cleanContent = cleanRich(rawContent);
-        String resolvedSummary = (body.summary() != null && !body.summary().isBlank())
-                ? cleanRich(body.summary())
-                : entity.getSummary();
+        String resolvedSummary =
+                (body.summary() != null && !body.summary().isBlank()) ? cleanRich(body.summary()) : entity.getSummary();
 
         KnowledgeArticleEntity.Status status = entity.getStatus();
         if (body.status() != null && !body.status().isBlank()) {
             try {
-                status = KnowledgeArticleEntity.Status.valueOf(body.status().trim().toUpperCase());
-            } catch (Exception ignored) {}
+                status = KnowledgeArticleEntity.Status.valueOf(
+                        body.status().trim().toUpperCase());
+            } catch (Exception ignored) {
+            }
         } else if (body.published() != null) {
             status = body.published() ? KnowledgeArticleEntity.Status.PUBLISHED : KnowledgeArticleEntity.Status.DRAFT;
         }
@@ -470,7 +475,9 @@ public class AdminContentController {
     @GetMapping("/work-items")
     @Cacheable(value = "admin_work_items", key = "'all'")
     public List<WorkResponse> workItems() {
-        return workItems.findAllByOrderByDisplayOrderAscIdAsc().stream().map(this::toWorkResponse).toList();
+        return workItems.findAllByOrderByDisplayOrderAscIdAsc().stream()
+                .map(this::toWorkResponse)
+                .toList();
     }
 
     @PostMapping("/work-items")
@@ -536,12 +543,14 @@ public class AdminContentController {
     @ResponseStatus(HttpStatus.CREATED)
     public Long createAiFact(@Valid @RequestBody AiFactRequest body) {
         var id = aiFacts.save(new AiFactEntity(
-                body.category() != null && !body.category().isBlank() ? body.category().trim() : "Khác",
-                body.title().trim(),
-                body.content().trim(),
-                body.isActive() != null ? body.isActive() : true,
-                body.displayOrder() != null ? body.displayOrder() : 0
-        )).getId();
+                        body.category() != null && !body.category().isBlank()
+                                ? body.category().trim()
+                                : "Khác",
+                        body.title().trim(),
+                        body.content().trim(),
+                        body.isActive() != null ? body.isActive() : true,
+                        body.displayOrder() != null ? body.displayOrder() : 0))
+                .getId();
         clearCache();
         return id;
     }
@@ -550,12 +559,13 @@ public class AdminContentController {
     public void updateAiFact(@PathVariable long id, @Valid @RequestBody AiFactRequest body) {
         var fact = aiFacts.findById(id).orElseThrow();
         fact.update(
-                body.category() != null && !body.category().isBlank() ? body.category().trim() : "Khác",
+                body.category() != null && !body.category().isBlank()
+                        ? body.category().trim()
+                        : "Khác",
                 body.title().trim(),
                 body.content().trim(),
                 body.isActive() != null ? body.isActive() : true,
-                body.displayOrder() != null ? body.displayOrder() : 0
-        );
+                body.displayOrder() != null ? body.displayOrder() : 0);
         aiFacts.save(fact);
         clearCache();
     }
@@ -570,7 +580,8 @@ public class AdminContentController {
     private String slugify(String text) {
         if (text == null || text.isBlank()) return "work-item-" + System.currentTimeMillis();
         String normalized = java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD);
-        String slug = normalized.replaceAll("\\p{InCombiningDiacriticalMarks}+", "")
+        String slug = normalized
+                .replaceAll("\\p{InCombiningDiacriticalMarks}+", "")
                 .toLowerCase()
                 .replaceAll("[^a-z0-9\\s-]", "")
                 .replaceAll("\\s+", "-")
@@ -698,23 +709,13 @@ public class AdminContentController {
     }
 
     public record CreateAdminUserRequest(
-            @NotBlank String username,
-            @NotBlank String password,
-            @NotBlank String displayName) {}
+            @NotBlank String username, @NotBlank String password, @NotBlank String displayName) {}
 
-    public record UpdateAdminUserRequest(
-            @NotBlank String displayName,
-            Boolean enabled,
-            String password) {}
+    public record UpdateAdminUserRequest(@NotBlank String displayName, Boolean enabled, String password) {}
 
-    public record CreateIpRequest(
-            @NotBlank String ipAddress,
-            String description) {}
+    public record CreateIpRequest(@NotBlank String ipAddress, String description) {}
 
-    public record AdminIpResponse(
-            Long id,
-            String ipAddress,
-            String description) {}
+    public record AdminIpResponse(Long id, String ipAddress, String description) {}
 
     public record AdminUserSummaryResponse(
             Long id,
