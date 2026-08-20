@@ -27,7 +27,7 @@ spring:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
     username: ${MAIL_USERNAME:nguyenquockhoa5549@gmail.com}
-    password: ${MAIL_PASSWORD:jhtvliparkbpiwzb}
+    password: ${MAIL_PASSWORD:}
     properties:
       mail:
         smtp:
@@ -61,6 +61,6 @@ app:
     recipient: ${NOTIFY_EMAIL:nguyenquockhoa5549@gmail.com}
     enabled: ${MAIL_ENABLED:true}
   cloudinary:
-    cloud-name: ${CLOUDINARY_CLOUD_NAME:fqt3ureh}
-    api-key: ${CLOUDINARY_API_KEY:566647441125483}
-    api-secret: ${CLOUDINARY_API_SECRET:i6yQDJoBV40CNXtdPCaH8gWbUCk}
+    cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+    api-key: ${CLOUDINARY_API_KEY:}
+    api-secret: ${CLOUDINARY_API_SECRET:}
