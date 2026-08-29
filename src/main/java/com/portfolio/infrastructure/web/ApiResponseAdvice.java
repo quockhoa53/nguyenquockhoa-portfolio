@@ -13,6 +13,14 @@ public class ApiResponseAdvice implements ResponseBodyAdvice<Object> {
 
     @Override
     public boolean supports(MethodParameter returnType, Class<? extends HttpMessageConverter<?>> converterType) {
+        Class<?> paramType = returnType.getParameterType();
+        if (org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody.class.isAssignableFrom(
+                        paramType)
+                || org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter.class.isAssignableFrom(
+                        paramType)
+                || byte[].class.isAssignableFrom(paramType)) {
+            return false;
+        }
         return returnType.getContainingClass().getPackageName().startsWith("com.portfolio");
     }
 
@@ -24,6 +32,18 @@ public class ApiResponseAdvice implements ResponseBodyAdvice<Object> {
             Class<? extends HttpMessageConverter<?>> selectedConverterType,
             ServerHttpRequest request,
             ServerHttpResponse response) {
+
+        if (body instanceof org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody
+                || body instanceof org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter
+                || body instanceof byte[]) {
+            return body;
+        }
+
+        if (selectedContentType != null
+                && (selectedContentType.includes(MediaType.TEXT_EVENT_STREAM)
+                        || "audio".equalsIgnoreCase(selectedContentType.getType()))) {
+            return body;
+        }
 
         if (body instanceof ApiResponse) {
             return body;
