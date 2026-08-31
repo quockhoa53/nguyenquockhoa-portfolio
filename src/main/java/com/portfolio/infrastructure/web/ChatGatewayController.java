@@ -21,8 +21,11 @@ public class ChatGatewayController {
             value = "/stream",
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public ResponseEntity<StreamingResponseBody> streamChat(@RequestBody String requestBody) {
-        StreamingResponseBody responseBody = outputStream -> chatbotClientService.streamChat(requestBody, outputStream);
+    public ResponseEntity<StreamingResponseBody> streamChat(
+            @RequestBody String requestBody, jakarta.servlet.http.HttpServletRequest request) {
+        String clientIp = com.portfolio.infrastructure.security.SecurityConfig.clientIp(request);
+        StreamingResponseBody responseBody =
+                outputStream -> chatbotClientService.streamChat(requestBody, clientIp, outputStream);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_TYPE, MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -33,8 +36,11 @@ public class ChatGatewayController {
     }
 
     @PostMapping(value = "/tts", consumes = MediaType.APPLICATION_JSON_VALUE, produces = "audio/mpeg")
-    public ResponseEntity<StreamingResponseBody> streamTts(@RequestBody String requestBody) {
-        StreamingResponseBody responseBody = outputStream -> chatbotClientService.streamTts(requestBody, outputStream);
+    public ResponseEntity<StreamingResponseBody> streamTts(
+            @RequestBody String requestBody, jakarta.servlet.http.HttpServletRequest request) {
+        String clientIp = com.portfolio.infrastructure.security.SecurityConfig.clientIp(request);
+        StreamingResponseBody responseBody =
+                outputStream -> chatbotClientService.streamTts(requestBody, clientIp, outputStream);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_TYPE, "audio/mpeg")
@@ -46,8 +52,10 @@ public class ChatGatewayController {
             value = "/feedback",
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Object> submitFeedback(@RequestBody Object payload) {
-        Object result = chatbotClientService.sendFeedback(payload);
+    public ResponseEntity<Object> submitFeedback(
+            @RequestBody Object payload, jakarta.servlet.http.HttpServletRequest request) {
+        String clientIp = com.portfolio.infrastructure.security.SecurityConfig.clientIp(request);
+        Object result = chatbotClientService.sendFeedback(payload, clientIp);
         return ResponseEntity.ok(result);
     }
 

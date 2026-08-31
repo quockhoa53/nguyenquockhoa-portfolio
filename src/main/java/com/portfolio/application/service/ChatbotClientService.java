@@ -35,41 +35,77 @@ public class ChatbotClientService {
     }
 
     private HttpHeaders createInternalHeaders() {
+        return createInternalHeaders(null);
+    }
+
+    private HttpHeaders createInternalHeaders(String clientIp) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("X-Internal-API-Key", internalSecret);
+        if (clientIp != null && !clientIp.isBlank()) {
+            headers.set("X-Forwarded-For", clientIp);
+        }
         return headers;
     }
 
-    public void streamChat(String requestJson, OutputStream outputStream) {
+    public void streamChat(String requestJson, String clientIp, OutputStream outputStream) {
         String targetUrl = chatbotUrl + "/api/chat/stream";
-        log.info("Proxying SSE Chat stream to AI service: {}", targetUrl);
+        log.info("Proxying SSE Chat stream to AI service: {} for client IP: {}", targetUrl, clientIp);
 
-        restTemplate.execute(
-                targetUrl,
-                HttpMethod.POST,
-                request -> {
-                    request.getHeaders().setContentType(MediaType.APPLICATION_JSON);
-                    request.getHeaders().set("X-Internal-API-Key", internalSecret);
-                    request.getHeaders().set(HttpHeaders.ACCEPT, MediaType.TEXT_EVENT_STREAM_VALUE);
-                    request.getBody().write(requestJson.getBytes(StandardCharsets.UTF_8));
-                },
-                response -> {
-                    try (InputStream is = response.getBody()) {
-                        byte[] buffer = new byte[1024];
-                        int bytesRead;
-                        while ((bytesRead = is.read(buffer)) != -1) {
-                            outputStream.write(buffer, 0, bytesRead);
-                            outputStream.flush();
+        try {
+            restTemplate.execute(
+                    targetUrl,
+                    HttpMethod.POST,
+                    request -> {
+                        request.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+                        request.getHeaders().set("X-Internal-API-Key", internalSecret);
+                        if (clientIp != null && !clientIp.isBlank()) {
+                            request.getHeaders().set("X-Forwarded-For", clientIp);
                         }
-                    }
-                    return null;
-                });
+                        request.getHeaders().set(HttpHeaders.ACCEPT, MediaType.TEXT_EVENT_STREAM_VALUE);
+                        request.getBody().write(requestJson.getBytes(StandardCharsets.UTF_8));
+                    },
+                    response -> {
+                        if (response.getStatusCode().is4xxClientError()
+                                || response.getStatusCode().is5xxServerError()) {
+                            String errPayload = StreamUtils.copyToString(response.getBody(), StandardCharsets.UTF_8);
+                            log.warn(
+                                    "Downstream AI stream returned error status {}: {}",
+                                    response.getStatusCode(),
+                                    errPayload);
+                            String fallbackEvent =
+                                    "data: {\"content\": \"Hệ thống AI đang tiếp nhận nhiều lượt truy cập hoặc đang khởi động. Bạn vui lòng thử lại sau vài giây nhé!\"}\n\ndata: {\"done\": true}\n\n";
+                            outputStream.write(fallbackEvent.getBytes(StandardCharsets.UTF_8));
+                            outputStream.flush();
+                            return null;
+                        }
+
+                        try (InputStream is = response.getBody()) {
+                            byte[] buffer = new byte[1024];
+                            int bytesRead;
+                            while ((bytesRead = is.read(buffer)) != -1) {
+                                outputStream.write(buffer, 0, bytesRead);
+                                outputStream.flush();
+                            }
+                        }
+                        return null;
+                    });
+        } catch (Exception e) {
+            log.error("Error executing Chat stream proxy: {}", e.getMessage());
+            try {
+                String fallbackEvent =
+                        "data: {\"content\": \"Hệ thống AI đang tiếp nhận nhiều lượt truy cập hoặc đang khởi động. Bạn vui lòng thử lại sau vài giây nhé!\"}\n\ndata: {\"done\": true}\n\n";
+                outputStream.write(fallbackEvent.getBytes(StandardCharsets.UTF_8));
+                outputStream.flush();
+            } catch (Exception writeErr) {
+                log.error("Failed to write fallback SSE error: {}", writeErr.getMessage());
+            }
+        }
     }
 
-    public void streamTts(String requestJson, OutputStream outputStream) {
+    public void streamTts(String requestJson, String clientIp, OutputStream outputStream) {
         String targetUrl = chatbotUrl + "/api/tts";
-        log.info("Proxying TTS audio stream to AI service: {}", targetUrl);
+        log.info("Proxying TTS audio stream to AI service: {} for client IP: {}", targetUrl, clientIp);
 
         restTemplate.execute(
                 targetUrl,
@@ -77,6 +113,9 @@ public class ChatbotClientService {
                 request -> {
                     request.getHeaders().setContentType(MediaType.APPLICATION_JSON);
                     request.getHeaders().set("X-Internal-API-Key", internalSecret);
+                    if (clientIp != null && !clientIp.isBlank()) {
+                        request.getHeaders().set("X-Forwarded-For", clientIp);
+                    }
                     request.getHeaders().set(HttpHeaders.ACCEPT, "audio/mpeg, audio/*, */*");
                     request.getBody().write(requestJson.getBytes(StandardCharsets.UTF_8));
                 },
@@ -89,9 +128,9 @@ public class ChatbotClientService {
                 });
     }
 
-    public Object sendFeedback(Object payload) {
+    public Object sendFeedback(Object payload, String clientIp) {
         String targetUrl = chatbotUrl + "/api/chat/feedback";
-        HttpEntity<Object> entity = new HttpEntity<>(payload, createInternalHeaders());
+        HttpEntity<Object> entity = new HttpEntity<>(payload, createInternalHeaders(clientIp));
         ResponseEntity<Object> response = restTemplate.exchange(targetUrl, HttpMethod.POST, entity, Object.class);
         return response.getBody();
     }
