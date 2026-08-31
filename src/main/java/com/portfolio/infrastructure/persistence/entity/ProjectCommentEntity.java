@@ -43,7 +43,7 @@ public class ProjectCommentEntity {
         this.guest = guest;
         this.parent = parent;
         this.content = content;
-        this.status = KnowledgeCommentEntity.Status.PENDING;
+        this.status = KnowledgeCommentEntity.Status.APPROVED;
         this.createdAt = OffsetDateTime.now();
         this.updatedAt = this.createdAt;
     }

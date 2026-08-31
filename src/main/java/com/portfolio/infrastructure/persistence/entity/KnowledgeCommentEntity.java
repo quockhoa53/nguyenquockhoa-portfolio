@@ -51,7 +51,7 @@ public class KnowledgeCommentEntity {
         this.guest = guest;
         this.parent = parent;
         this.content = content;
-        this.status = Status.PENDING;
+        this.status = Status.APPROVED;
         this.createdAt = OffsetDateTime.now();
         this.updatedAt = this.createdAt;
     }

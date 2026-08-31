@@ -57,6 +57,17 @@ public class EngagementController {
         }
     }
 
+    @GetMapping("/knowledge/articles/{id}/like")
+    public LikeResponse getArticleLikeStatus(@PathVariable long id, HttpServletRequest request) {
+        boolean liked = false;
+        try {
+            var guest = identities.requireGuest(request);
+            liked = knowledgeLikes.findByArticleIdAndGuestId(id, guest.getId()).isPresent();
+        } catch (Exception ignored) {
+        }
+        return new LikeResponse(liked, knowledgeLikes.countByArticleId(id));
+    }
+
     @PutMapping("/knowledge/articles/{id}/like")
     @Transactional
     public LikeResponse likeArticle(@PathVariable long id, HttpServletRequest request) {
@@ -75,6 +86,17 @@ public class EngagementController {
         knowledgeLikes.findByArticleIdAndGuestId(id, guest.getId()).ifPresent(knowledgeLikes::delete);
         evictCache("knowledge_articles", "knowledge_article_detail");
         return new LikeResponse(false, knowledgeLikes.countByArticleId(id));
+    }
+
+    @GetMapping("/projects/{id}/like")
+    public LikeResponse getProjectLikeStatus(@PathVariable long id, HttpServletRequest request) {
+        boolean liked = false;
+        try {
+            var guest = identities.requireGuest(request);
+            liked = projectLikes.findByProjectIdAndGuestId(id, guest.getId()).isPresent();
+        } catch (Exception ignored) {
+        }
+        return new LikeResponse(liked, projectLikes.countByProjectId(id));
     }
 
     @PutMapping("/projects/{id}/like")
