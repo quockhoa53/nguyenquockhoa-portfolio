@@ -32,17 +32,35 @@ public class GuestIdentityService {
         var normalizedEmail = email.trim().toLowerCase();
         var guest = guests.save(new GuestVisitorEntity(
                 UUID.randomUUID(), displayName.trim(), normalizedEmail, sha256(normalizedEmail)));
-        var cookie = new Cookie(COOKIE_NAME, sign(guest.getId()));
+        var token = sign(guest.getId());
+        var cookie = new Cookie(COOKIE_NAME, token);
         cookie.setHttpOnly(true);
-        cookie.setSecure(false);
+        cookie.setSecure(true);
         cookie.setPath("/");
         cookie.setMaxAge(365 * 24 * 60 * 60);
-        cookie.setAttribute("SameSite", "Lax");
+        cookie.setAttribute("SameSite", "None");
         response.addCookie(cookie);
         return guest;
     }
 
+    public String tokenFor(UUID id) {
+        return sign(id);
+    }
+
     public GuestVisitorEntity requireGuest(HttpServletRequest request) {
+        // 1. Check Header X-Guest-Token (Cross-site resilient fallback for Vercel -> Render)
+        String headerToken = request.getHeader("X-Guest-Token");
+        if (headerToken != null && !headerToken.isBlank()) {
+            return verify(headerToken.trim());
+        }
+
+        // 2. Check Authorization header
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Guest ")) {
+            return verify(authHeader.substring(6).trim());
+        }
+
+        // 3. Check Cookie
         if (request.getCookies() != null) {
             for (var cookie : request.getCookies()) {
                 if (COOKIE_NAME.equals(cookie.getName())) {

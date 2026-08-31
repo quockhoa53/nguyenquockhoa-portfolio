@@ -20,11 +20,12 @@ public class GuestController {
     @PostMapping
     public GuestResponse register(@Valid @RequestBody GuestRequest body, HttpServletResponse response) {
         var guest = identities.register(body.displayName(), body.email(), response);
-        return new GuestResponse(guest.getId().toString(), guest.getDisplayName(), guest.isEmailVerified());
+        var token = identities.tokenFor(guest.getId());
+        return new GuestResponse(guest.getId().toString(), guest.getDisplayName(), guest.isEmailVerified(), token);
     }
 
     public record GuestRequest(
             @NotBlank @Size(max = 150) String displayName, @NotBlank @Email @Size(max = 255) String email) {}
 
-    public record GuestResponse(String id, String displayName, boolean emailVerified) {}
+    public record GuestResponse(String id, String displayName, boolean emailVerified, String token) {}
 }
