@@ -72,7 +72,10 @@ public class KnowledgeController {
                 article.isFeatured(),
                 article.getViewCount() + 1,
                 likes.countByArticleId(article.getId()),
-                comments.countByArticleIdAndStatus(article.getId(), KnowledgeCommentEntity.Status.APPROVED),
+                comments.countByArticleIdAndStatusIn(
+                        article.getId(),
+                        java.util.List.of(
+                                KnowledgeCommentEntity.Status.APPROVED, KnowledgeCommentEntity.Status.PENDING)),
                 article.getPublishedAt());
     }
 

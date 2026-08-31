@@ -119,11 +119,12 @@ public class EngagementController {
         return new LikeResponse(false, projectLikes.countByProjectId(id));
     }
 
+    private static final List<KnowledgeCommentEntity.Status> VISIBLE_STATUSES =
+            List.of(KnowledgeCommentEntity.Status.APPROVED, KnowledgeCommentEntity.Status.PENDING);
+
     @GetMapping("/knowledge/articles/{id}/comments")
     public List<CommentResponse> knowledgeComments(@PathVariable long id) {
-        return knowledgeComments
-                .findByArticleIdAndStatusOrderByCreatedAtAsc(id, KnowledgeCommentEntity.Status.APPROVED)
-                .stream()
+        return knowledgeComments.findByArticleIdAndStatusInOrderByCreatedAtAsc(id, VISIBLE_STATUSES).stream()
                 .map(this::toResponse)
                 .toList();
     }
@@ -144,9 +145,7 @@ public class EngagementController {
 
     @GetMapping("/projects/{id}/comments")
     public List<CommentResponse> projectComments(@PathVariable long id) {
-        return projectComments
-                .findByProjectIdAndStatusOrderByCreatedAtAsc(id, KnowledgeCommentEntity.Status.APPROVED)
-                .stream()
+        return projectComments.findByProjectIdAndStatusInOrderByCreatedAtAsc(id, VISIBLE_STATUSES).stream()
                 .map(this::toResponse)
                 .toList();
     }
