@@ -157,15 +157,38 @@ public class ChatbotClientService {
         String targetUrl = chatbotUrl + "/api/admin/ai-insights";
         log.info("Admin fetching AI Insights through Gateway: {}", targetUrl);
         HttpEntity<Void> entity = new HttpEntity<>(createInternalHeaders());
-        ResponseEntity<Object> response = restTemplate.exchange(targetUrl, HttpMethod.GET, entity, Object.class);
-        return response.getBody();
+        try {
+            ResponseEntity<Object> response = restTemplate.exchange(targetUrl, HttpMethod.GET, entity, Object.class);
+            return response.getBody();
+        } catch (Exception e) {
+            log.error("Failed to fetch AI Insights from Chatbot service ({}): {}", targetUrl, e.getMessage());
+            return Map.of(
+                    "status", "error",
+                    "message", "Không thể kết nối tới dịch vụ AI Chatbot: " + e.getMessage(),
+                    "data", Map.of(
+                            "total_conversations", 0,
+                            "total_messages", 0,
+                            "positive_ratings", 0,
+                            "negative_ratings", 0,
+                            "satisfaction_rate", 100,
+                            "top_inquiries", java.util.List.of(),
+                            "unresolved_queries", java.util.List.of(),
+                            "suggested_facts", java.util.List.of()));
+        }
     }
 
     public Object adoptFact(Object payload) {
         String targetUrl = chatbotUrl + "/api/admin/ai-insights/adopt-fact";
         log.info("Admin adopting AI Fact through Gateway: {}", targetUrl);
         HttpEntity<Object> entity = new HttpEntity<>(payload, createInternalHeaders());
-        ResponseEntity<Object> response = restTemplate.exchange(targetUrl, HttpMethod.POST, entity, Object.class);
-        return response.getBody();
+        try {
+            ResponseEntity<Object> response = restTemplate.exchange(targetUrl, HttpMethod.POST, entity, Object.class);
+            return response.getBody();
+        } catch (Exception e) {
+            log.error("Failed to adopt fact on Chatbot service ({}): {}", targetUrl, e.getMessage());
+            return Map.of(
+                    "status", "error",
+                    "message", "Lỗi khi nạp Fact vào bộ nhớ AI: " + e.getMessage());
+        }
     }
 }
