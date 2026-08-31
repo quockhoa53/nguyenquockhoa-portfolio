@@ -7,8 +7,12 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 public interface ProjectCommentJpaRepository extends JpaRepository<ProjectCommentEntity, Long> {
+    @Query(
+            "SELECT c FROM ProjectCommentEntity c JOIN FETCH c.guest WHERE c.project.id = :projectId AND c.status IN :statuses ORDER BY c.createdAt ASC")
     List<ProjectCommentEntity> findByProjectIdAndStatusInOrderByCreatedAtAsc(
-            long projectId, java.util.Collection<KnowledgeCommentEntity.Status> statuses);
+            @org.springframework.data.repository.query.Param("projectId") long projectId,
+            @org.springframework.data.repository.query.Param("statuses")
+                    java.util.Collection<KnowledgeCommentEntity.Status> statuses);
 
     @Query("SELECT c FROM ProjectCommentEntity c JOIN FETCH c.guest ORDER BY c.createdAt DESC")
     List<ProjectCommentEntity> findAllWithGuest();

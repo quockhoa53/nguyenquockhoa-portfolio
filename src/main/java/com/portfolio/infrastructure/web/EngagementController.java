@@ -58,6 +58,7 @@ public class EngagementController {
     }
 
     @GetMapping("/knowledge/articles/{id}/like")
+    @Transactional(readOnly = true)
     public LikeResponse getArticleLikeStatus(@PathVariable long id, HttpServletRequest request) {
         boolean liked = false;
         try {
@@ -89,6 +90,7 @@ public class EngagementController {
     }
 
     @GetMapping("/projects/{id}/like")
+    @Transactional(readOnly = true)
     public LikeResponse getProjectLikeStatus(@PathVariable long id, HttpServletRequest request) {
         boolean liked = false;
         try {
@@ -123,6 +125,7 @@ public class EngagementController {
             List.of(KnowledgeCommentEntity.Status.APPROVED, KnowledgeCommentEntity.Status.PENDING);
 
     @GetMapping("/knowledge/articles/{id}/comments")
+    @Transactional(readOnly = true)
     public List<CommentResponse> knowledgeComments(@PathVariable long id) {
         return knowledgeComments.findByArticleIdAndStatusInOrderByCreatedAtAsc(id, VISIBLE_STATUSES).stream()
                 .map(this::toResponse)
@@ -131,6 +134,7 @@ public class EngagementController {
 
     @PostMapping("/knowledge/articles/{id}/comments")
     @ResponseStatus(HttpStatus.CREATED)
+    @Transactional
     public CommentResponse commentArticle(
             @PathVariable long id, @Valid @RequestBody CommentRequest body, HttpServletRequest request) {
         var guest = identities.requireGuest(request);
@@ -144,6 +148,7 @@ public class EngagementController {
     }
 
     @GetMapping("/projects/{id}/comments")
+    @Transactional(readOnly = true)
     public List<CommentResponse> projectComments(@PathVariable long id) {
         return projectComments.findByProjectIdAndStatusInOrderByCreatedAtAsc(id, VISIBLE_STATUSES).stream()
                 .map(this::toResponse)
@@ -152,6 +157,7 @@ public class EngagementController {
 
     @PostMapping("/projects/{id}/comments")
     @ResponseStatus(HttpStatus.CREATED)
+    @Transactional
     public CommentResponse commentProject(
             @PathVariable long id, @Valid @RequestBody CommentRequest body, HttpServletRequest request) {
         var guest = identities.requireGuest(request);

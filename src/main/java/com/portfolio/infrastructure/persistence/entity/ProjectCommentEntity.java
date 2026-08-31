@@ -14,7 +14,7 @@ public class ProjectCommentEntity {
     @JoinColumn(name = "project_id")
     private ProjectEntity project;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "guest_id")
     private GuestVisitorEntity guest;
 

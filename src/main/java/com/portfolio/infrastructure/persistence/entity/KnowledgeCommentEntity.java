@@ -22,7 +22,7 @@ public class KnowledgeCommentEntity {
     @JoinColumn(name = "article_id")
     private KnowledgeArticleEntity article;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "guest_id")
     private GuestVisitorEntity guest;
 
