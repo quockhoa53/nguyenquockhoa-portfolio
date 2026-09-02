@@ -18,6 +18,9 @@ public class ProjectEntity {
     @Column(nullable = false, length = 200)
     private String title;
 
+    @Column(columnDefinition = "TEXT")
+    private String summary;
+
     @Column(nullable = false, columnDefinition = "TEXT")
     private String description;
 
@@ -43,6 +46,7 @@ public class ProjectEntity {
 
     public ProjectEntity(
             String title,
+            String summary,
             String description,
             String technologies,
             String imageUrl,
@@ -50,11 +54,12 @@ public class ProjectEntity {
             String sourceUrl,
             boolean featured,
             int displayOrder) {
-        update(title, description, technologies, imageUrl, demoUrl, sourceUrl, featured, displayOrder);
+        update(title, summary, description, technologies, imageUrl, demoUrl, sourceUrl, featured, displayOrder);
     }
 
     public void update(
             String title,
+            String summary,
             String description,
             String technologies,
             String imageUrl,
@@ -63,6 +68,7 @@ public class ProjectEntity {
             boolean featured,
             int displayOrder) {
         this.title = title;
+        this.summary = summary;
         this.description = description;
         this.technologies = technologies;
         this.imageUrl = imageUrl;
@@ -78,6 +84,10 @@ public class ProjectEntity {
 
     public String getTitle() {
         return title;
+    }
+
+    public String getSummary() {
+        return summary;
     }
 
     public String getDescription() {

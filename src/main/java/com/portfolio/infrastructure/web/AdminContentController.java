@@ -411,6 +411,7 @@ public class AdminContentController {
     public Long createProject(@Valid @RequestBody ProjectRequest body) {
         var id = projects.save(new ProjectEntity(
                         body.title(),
+                        body.summary(),
                         cleanRich(body.description()),
                         body.technologies(),
                         body.imageUrl(),
@@ -428,6 +429,7 @@ public class AdminContentController {
         var entity = projects.findById(id).orElseThrow();
         entity.update(
                 body.title(),
+                body.summary(),
                 cleanRich(body.description()),
                 body.technologies(),
                 body.imageUrl(),
@@ -806,7 +808,16 @@ public class AdminContentController {
     }
 
     private String cleanRich(String html) {
-        return Jsoup.clean(html == null ? "" : html, Safelist.relaxed().addAttributes("a", "target", "rel"));
+        if (html == null) return "";
+        Safelist safelist = Safelist.relaxed()
+                .addAttributes("a", "target", "rel", "href")
+                .addAttributes("pre", "class", "style", "data-title", "data-desc")
+                .addAttributes("code", "class", "style")
+                .addAttributes("div", "class", "style", "data-title", "data-desc")
+                .addAttributes("span", "class", "style")
+                .addAttributes("p", "class", "style")
+                .addAttributes("img", "src", "alt", "width", "height", "class", "style");
+        return Jsoup.clean(html, safelist);
     }
 
     private WorkResponse toWorkResponse(WorkItemEntity item) {
@@ -906,6 +917,7 @@ public class AdminContentController {
 
     public record ProjectRequest(
             @NotBlank String title,
+            String summary,
             @NotBlank String description,
             @NotBlank String technologies,
             String imageUrl,

@@ -115,6 +115,7 @@ public class PostgresPortfolioAdapter implements PortfolioQueryPort {
         return new Portfolio.Project(
                 e.getId(),
                 e.getTitle(),
+                e.getSummary(),
                 e.getDescription(),
                 e.getTechnologies(),
                 e.getImageUrl(),

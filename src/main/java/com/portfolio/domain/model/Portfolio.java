@@ -33,6 +33,7 @@ public record Portfolio(Profile profile, List<Skill> skills, List<Experience> ex
     public record Project(
             Long id,
             String title,
+            String summary,
             String description,
             String technologies,
             String imageUrl,
