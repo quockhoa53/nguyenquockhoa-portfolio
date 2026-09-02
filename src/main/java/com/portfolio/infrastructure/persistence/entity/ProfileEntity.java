@@ -17,6 +17,12 @@ public class ProfileEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "version_name", length = 150)
+    private String versionName;
+
+    @Column(name = "is_published")
+    private boolean isPublished = false;
+
     @Column(name = "full_name", nullable = false, length = 150)
     private String fullName;
 
@@ -55,6 +61,72 @@ public class ProfileEntity {
 
     protected ProfileEntity() {}
 
+    public ProfileEntity(
+            String versionName,
+            String fullName,
+            String headline,
+            String shortBio,
+            String bio,
+            String email,
+            String phone,
+            String location,
+            String avatarUrl,
+            String githubUrl,
+            String linkedinUrl,
+            String facebookUrl,
+            String education,
+            boolean isPublished) {
+        this.versionName = versionName;
+        this.fullName = fullName;
+        this.headline = headline;
+        this.shortBio = shortBio;
+        this.bio = bio;
+        this.email = email;
+        this.phone = phone;
+        this.location = location;
+        this.avatarUrl = avatarUrl;
+        this.githubUrl = githubUrl;
+        this.linkedinUrl = linkedinUrl;
+        this.facebookUrl = facebookUrl;
+        this.education = education;
+        this.isPublished = isPublished;
+    }
+
+    public void update(
+            String versionName,
+            String fullName,
+            String headline,
+            String shortBio,
+            String bio,
+            String email,
+            String phone,
+            String location,
+            String avatarUrl,
+            String githubUrl,
+            String linkedinUrl,
+            String facebookUrl,
+            String education,
+            boolean isPublished) {
+        if (versionName != null && !versionName.isBlank()) {
+            this.versionName = versionName;
+        }
+        this.fullName = fullName;
+        this.headline = headline;
+        this.shortBio = shortBio;
+        this.bio = bio;
+        this.email = email;
+        this.phone = phone;
+        this.location = location;
+        this.avatarUrl = avatarUrl;
+        this.githubUrl = githubUrl;
+        this.linkedinUrl = linkedinUrl;
+        this.facebookUrl = facebookUrl;
+        if (education != null) {
+            this.education = education;
+        }
+        this.isPublished = isPublished;
+    }
+
     public void update(
             String fullName,
             String headline,
@@ -86,6 +158,22 @@ public class ProfileEntity {
 
     public Long getId() {
         return id;
+    }
+
+    public String getVersionName() {
+        return versionName != null && !versionName.isBlank() ? versionName : fullName + " - " + headline;
+    }
+
+    public void setVersionName(String versionName) {
+        this.versionName = versionName;
+    }
+
+    public boolean isPublished() {
+        return isPublished;
+    }
+
+    public void setPublished(boolean published) {
+        this.isPublished = published;
     }
 
     public String getFullName() {

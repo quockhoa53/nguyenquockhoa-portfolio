@@ -33,7 +33,8 @@ public class PostgresPortfolioAdapter implements PortfolioQueryPort {
 
     @Override
     public Portfolio.Profile loadProfile() {
-        return profiles.findFirstByOrderByIdAsc()
+        return profiles.findFirstByIsPublishedTrueOrderByIdDesc()
+                .or(() -> profiles.findFirstByOrderByIdAsc())
                 .map(this::toDomain)
                 .orElseGet(
                         () -> new Portfolio.Profile(

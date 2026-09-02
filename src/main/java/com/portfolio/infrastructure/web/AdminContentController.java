@@ -14,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/v1/admin")
@@ -209,10 +210,29 @@ public class AdminContentController {
 
     // ================= PORTFOLIO PROFILE & CONTENT =================
 
-    @PutMapping("/profile")
-    public void updateProfile(@Valid @RequestBody ProfileRequest body) {
-        var profile = profiles.findFirstByOrderByIdAsc().orElseThrow();
-        profile.update(
+    @GetMapping("/profiles")
+    public List<ProfileResponse> getProfiles() {
+        return profiles.findAllByOrderByIdDesc().stream()
+                .map(this::toProfileResponse)
+                .toList();
+    }
+
+    @PostMapping("/profiles")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Transactional
+    public Long createProfileVersion(@Valid @RequestBody ProfileRequest body) {
+        boolean isPub = body.isPublished() != null && body.isPublished();
+        if (isPub) {
+            profiles.findAll().forEach(p -> {
+                p.setPublished(false);
+                profiles.save(p);
+            });
+        }
+        String vName = (body.versionName() != null && !body.versionName().isBlank())
+                ? body.versionName()
+                : body.fullName() + " - " + body.headline();
+        var entity = new ProfileEntity(
+                vName,
                 body.fullName(),
                 body.headline(),
                 Jsoup.clean(body.shortBio(), Safelist.none()),
@@ -224,7 +244,103 @@ public class AdminContentController {
                 body.githubUrl(),
                 body.linkedinUrl(),
                 body.facebookUrl(),
-                body.education());
+                body.education(),
+                isPub);
+        var saved = profiles.save(entity);
+        clearCache();
+        return saved.getId();
+    }
+
+    @PutMapping("/profiles/{id}")
+    @Transactional
+    public void updateProfileVersion(@PathVariable long id, @Valid @RequestBody ProfileRequest body) {
+        var entity = profiles.findById(id).orElseThrow();
+        boolean isPub = body.isPublished() != null && body.isPublished();
+        if (isPub) {
+            profiles.findAll().forEach(p -> {
+                if (!p.getId().equals(id)) {
+                    p.setPublished(false);
+                    profiles.save(p);
+                }
+            });
+        }
+        String vName = (body.versionName() != null && !body.versionName().isBlank())
+                ? body.versionName()
+                : entity.getVersionName();
+        entity.update(
+                vName,
+                body.fullName(),
+                body.headline(),
+                Jsoup.clean(body.shortBio(), Safelist.none()),
+                cleanRich(body.bio()),
+                body.email(),
+                body.phone(),
+                body.location(),
+                body.avatarUrl(),
+                body.githubUrl(),
+                body.linkedinUrl(),
+                body.facebookUrl(),
+                body.education(),
+                isPub);
+        profiles.save(entity);
+        clearCache();
+    }
+
+    @PostMapping("/profiles/{id}/publish")
+    @Transactional
+    public void publishProfileVersion(@PathVariable long id) {
+        var entity = profiles.findById(id).orElseThrow();
+        profiles.findAll().forEach(p -> {
+            p.setPublished(p.getId().equals(id));
+            profiles.save(p);
+        });
+        clearCache();
+    }
+
+    @DeleteMapping("/profiles/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
+    public void deleteProfileVersion(@PathVariable long id) {
+        if (profiles.count() <= 1) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Không thể xóa phiên bản profile duy nhất còn lại!");
+        }
+        var entity = profiles.findById(id).orElseThrow();
+        boolean wasPublished = entity.isPublished();
+        profiles.deleteById(id);
+        if (wasPublished) {
+            profiles.findFirstByOrderByIdAsc().ifPresent(p -> {
+                p.setPublished(true);
+                profiles.save(p);
+            });
+        }
+        clearCache();
+    }
+
+    @PutMapping("/profile")
+    @Transactional
+    public void updateProfile(@Valid @RequestBody ProfileRequest body) {
+        var profile = profiles.findFirstByIsPublishedTrueOrderByIdDesc()
+                .or(() -> profiles.findFirstByOrderByIdAsc())
+                .orElseThrow();
+        boolean isPub = body.isPublished() != null ? body.isPublished() : profile.isPublished();
+        String vName = (body.versionName() != null && !body.versionName().isBlank())
+                ? body.versionName()
+                : profile.getVersionName();
+        profile.update(
+                vName,
+                body.fullName(),
+                body.headline(),
+                Jsoup.clean(body.shortBio(), Safelist.none()),
+                cleanRich(body.bio()),
+                body.email(),
+                body.phone(),
+                body.location(),
+                body.avatarUrl(),
+                body.githubUrl(),
+                body.linkedinUrl(),
+                body.facebookUrl(),
+                body.education(),
+                isPub);
         profiles.save(profile);
         clearCache();
     }
@@ -726,6 +842,7 @@ public class AdminContentController {
             java.time.OffsetDateTime lastLoginAt) {}
 
     public record ProfileRequest(
+            String versionName,
             @NotBlank String fullName,
             @NotBlank String headline,
             @NotBlank String shortBio,
@@ -737,7 +854,44 @@ public class AdminContentController {
             String githubUrl,
             String linkedinUrl,
             String facebookUrl,
-            String education) {}
+            String education,
+            Boolean isPublished) {}
+
+    public record ProfileResponse(
+            Long id,
+            String versionName,
+            String fullName,
+            String headline,
+            String shortBio,
+            String bio,
+            String email,
+            String phone,
+            String location,
+            String avatarUrl,
+            String githubUrl,
+            String linkedinUrl,
+            String facebookUrl,
+            String education,
+            boolean isPublished) {}
+
+    private ProfileResponse toProfileResponse(ProfileEntity e) {
+        return new ProfileResponse(
+                e.getId(),
+                e.getVersionName() != null ? e.getVersionName() : e.getFullName() + " - " + e.getHeadline(),
+                e.getFullName(),
+                e.getHeadline(),
+                e.getShortBio(),
+                e.getBio(),
+                e.getEmail(),
+                e.getPhone(),
+                e.getLocation(),
+                e.getAvatarUrl(),
+                e.getGithubUrl(),
+                e.getLinkedinUrl(),
+                e.getFacebookUrl(),
+                e.getEducation(),
+                e.isPublished());
+    }
 
     public record SkillRequest(
             @NotBlank String name, @NotBlank String category, @Min(0) @Max(100) int proficiency, int displayOrder) {}
